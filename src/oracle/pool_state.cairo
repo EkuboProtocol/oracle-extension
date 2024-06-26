@@ -1,9 +1,6 @@
 use core::option::{OptionTrait};
 use core::traits::{TryInto, Into};
-use ekubo::interfaces::core::ICoreDispatcherTrait;
-use ekubo::types::bounds::{Bounds};
 use ekubo::types::i129::{i129, i129Trait};
-use ekubo::types::keys::{PoolKey, PositionKey};
 use starknet::storage_access::{StorePacking};
 
 // 192 bits total, fits in a single felt

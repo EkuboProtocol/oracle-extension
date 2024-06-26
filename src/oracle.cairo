@@ -3,13 +3,9 @@ mod pool_state;
 #[cfg(test)]
 mod pool_state_test;
 
-use core::option::{OptionTrait};
-use core::traits::{TryInto, Into};
-use ekubo::interfaces::core::ICoreDispatcherTrait;
 use ekubo::types::bounds::{Bounds};
-use ekubo::types::i129::{i129, i129Trait};
-use ekubo::types::keys::{PoolKey, PositionKey};
-use starknet::storage_access::{StorePacking};
+use ekubo::types::i129::{i129};
+use ekubo::types::keys::{PoolKey};
 
 #[starknet::interface]
 pub trait IOracle<TStorage> {
@@ -38,7 +34,7 @@ pub mod Oracle {
     use ekubo::types::delta::{Delta};
     use ekubo::types::i129::{i129};
     use starknet::{ContractAddress, get_block_timestamp, get_caller_address};
-    use super::{IOracle, PoolKey, PositionKey, pool_state::{PoolState}};
+    use super::{IOracle, PoolKey, pool_state::{PoolState}};
 
     #[storage]
     struct Storage {
@@ -54,6 +50,7 @@ pub mod Oracle {
         core
             .set_call_points(
                 CallPoints {
+                    // to record the initial tick
                     before_initialize_pool: true,
                     after_initialize_pool: false,
                     // in order to record the seconds that have passed / liquidity

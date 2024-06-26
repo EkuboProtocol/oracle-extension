@@ -94,7 +94,19 @@ fn setup(starting_balance: u256, fee: u128, tick_spacing: u128) -> PoolKey {
 fn test_create_oracle_pool() {
     let pool_key = setup(starting_balance: 1000, fee: 0, tick_spacing: 100);
 
-    ekubo_core().initialize_pool(pool_key, Zero::zero());
+    ekubo_core().initialize_pool(pool_key, i129 { mag: 2, sign: false });
+
+    assert_eq!(
+        IOracleDispatcher { contract_address: pool_key.extension }.get_tick_cumulative(pool_key),
+        Zero::zero()
+    );
+
+    cheat_block_timestamp(pool_key.extension, get_block_timestamp() + 10, CheatSpan::Indefinite);
+
+    assert_eq!(
+        IOracleDispatcher { contract_address: pool_key.extension }.get_tick_cumulative(pool_key),
+        i129 { mag: 20, sign: false }
+    );
 
     router()
         .swap(

@@ -20,5 +20,5 @@ casm = true
 
 [[tool.snforge.fork]]
 name = "mainnet"
-url = "https://rpc.nethermind.io/mainnet-juno/"
+url = "https://free-rpc.nethermind.io/mainnet-juno"
 block_id.tag = "Latest"
