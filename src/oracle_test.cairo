@@ -91,7 +91,26 @@ fn setup(starting_balance: u256, fee: u128, tick_spacing: u128) -> PoolKey {
 
 #[test]
 #[fork("mainnet")]
-fn test_create_oracle_pool() {
+fn test_oracle_sets_call_points() {
+    let pool_key = setup(starting_balance: 1000, fee: 0, tick_spacing: 100);
+    assert_eq!(
+        ekubo_core().get_call_points(pool_key.extension),
+        CallPoints {
+            before_initialize_pool: true,
+            after_initialize_pool: false,
+            before_swap: true,
+            after_swap: true,
+            before_update_position: true,
+            after_update_position: false,
+            before_collect_fees: false,
+            after_collect_fees: false,
+        }
+    );
+}
+
+#[test]
+#[fork("mainnet")]
+fn test_get_tick_cumulative_increases_over_time() {
     let pool_key = setup(starting_balance: 1000, fee: 0, tick_spacing: 100);
 
     ekubo_core().initialize_pool(pool_key, i129 { mag: 2, sign: false });
@@ -107,10 +126,4 @@ fn test_create_oracle_pool() {
         IOracleDispatcher { contract_address: pool_key.extension }.get_tick_cumulative(pool_key),
         i129 { mag: 20, sign: false }
     );
-
-    router()
-        .swap(
-            RouteNode { pool_key, sqrt_ratio_limit: u256 { high: 1, low: 0 }, skip_ahead: 0, },
-            TokenAmount { token: pool_key.token0, amount: i129 { mag: 1, sign: false } }
-        );
 }
