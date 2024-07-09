@@ -1,7 +1,7 @@
 [package]
-name = "ekubo_extension"
+name = "ekubo_oracle_extension"
 version = "0.1.0"
-description = "An extension for Ekubo Protocol"
+description = "An geomean time weighted oracle extension for Ekubo Protocol"
 homepage = "https://ekubo.org"
 cairo-version = "2.6.3"
 edition = '2023_11'
