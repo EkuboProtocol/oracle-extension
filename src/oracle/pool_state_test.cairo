@@ -1,6 +1,6 @@
 use core::num::traits::{Zero};
 use ekubo::types::i129::{i129};
-use ekubo_extension::oracle::pool_state::{PoolState};
+use ekubo_oracle_extension::oracle::pool_state::{PoolState};
 
 use starknet::{storage_access::{StorePacking}};
 

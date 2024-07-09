@@ -10,8 +10,8 @@ use ekubo::types::bounds::{Bounds};
 use ekubo::types::call_points::{CallPoints};
 use ekubo::types::i129::{i129};
 use ekubo::types::keys::{PoolKey, PositionKey};
-use ekubo_extension::oracle::{IOracleDispatcher, IOracleDispatcherTrait, Oracle};
-use ekubo_extension::test_token::{TestToken, IERC20Dispatcher, IERC20DispatcherTrait};
+use ekubo_oracle_extension::oracle::{IOracleDispatcher, IOracleDispatcherTrait, Oracle};
+use ekubo_oracle_extension::test_token::{TestToken, IERC20Dispatcher, IERC20DispatcherTrait};
 use snforge_std::{
     declare, ContractClassTrait, cheat_caller_address, cheat_block_timestamp, CheatSpan,
     ContractClass
