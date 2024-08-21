@@ -4,7 +4,7 @@ version = 1
 [[package]]
 name = "ekubo"
 version = "0.1.0"
-source = "git+https://github.com/ekuboprotocol/abis#cccac030c7e66e0cb986fab9989d98e59c3a7436"
+source = "git+https://github.com/ekuboprotocol/abis#61d6c27e69cd355543aff5f6d16822e4517d9604"
 
 [[package]]
 name = "ekubo_oracle_extension"
@@ -16,5 +16,5 @@ dependencies = [
 
 [[package]]
 name = "snforge_std"
-version = "0.25.0"
-source = "git+https://github.com/foundry-rs/starknet-foundry#74da40441b7bf51582fc053dcc4d4d751bef1f44"
+version = "0.27.0"
+source = "git+https://github.com/foundry-rs/starknet-foundry?tag=v0.27.0#2d99b7c00678ef0363881ee0273550c44a9263de"

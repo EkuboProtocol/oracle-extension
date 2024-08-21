@@ -15,11 +15,13 @@ pub trait IOracle<TStorage> {
         self: @TStorage, pool_key: PoolKey, bounds: Bounds
     ) -> felt252;
 
-    // Returns the cumulative tick value for a given pool, useful for computing a geomean oracle for the duration of a position
+    // Returns the cumulative tick value for a given pool, useful for computing a geomean oracle for
+    // the duration of a position
     fn get_tick_cumulative(self: @TStorage, pool_key: PoolKey) -> i129;
 }
 
-// This extension can be used with pools to track the liquidity-seconds per liquidity over time. This measure can be used to incentive positions in this pool.
+// This extension can be used with pools to track the liquidity-seconds per liquidity over time.
+// This measure can be used to incentive positions in this pool.
 #[starknet::contract]
 pub mod Oracle {
     use core::num::traits::{Zero};
@@ -33,15 +35,19 @@ pub mod Oracle {
     use ekubo::types::call_points::{CallPoints};
     use ekubo::types::delta::{Delta};
     use ekubo::types::i129::{i129};
+    use starknet::storage::{
+        Map, StoragePointerWriteAccess, StorageMapReadAccess, StoragePointerReadAccess,
+        StorageMapWriteAccess
+    };
     use starknet::{ContractAddress, get_block_timestamp, get_caller_address};
     use super::{IOracle, PoolKey, pool_state::{PoolState}};
 
     #[storage]
     struct Storage {
-        core: ICoreDispatcher,
-        pool_state: LegacyMap<PoolKey, PoolState>,
-        pool_seconds_per_liquidity: LegacyMap<PoolKey, felt252>,
-        tick_seconds_per_liquidity_outside: LegacyMap<(PoolKey, i129), felt252>,
+        pub core: ICoreDispatcher,
+        pub pool_state: Map<PoolKey, PoolState>,
+        pub pool_seconds_per_liquidity: Map<PoolKey, felt252>,
+        pub tick_seconds_per_liquidity_outside: Map<(PoolKey, i129), felt252>,
     }
 
     #[constructor]
@@ -119,7 +125,8 @@ pub mod Oracle {
 
     #[abi(embed_v0)]
     impl OracleImpl of IOracle<ContractState> {
-        // Returns the number of seconds that the position has held the full liquidity of the pool, as a fixed point number with 128 bits after the radix
+        // Returns the number of seconds that the position has held the full liquidity of the pool,
+        // as a fixed point number with 128 bits after the radix
         fn get_seconds_per_liquidity_inside(
             self: @ContractState, pool_key: PoolKey, bounds: Bounds
         ) -> felt252 {
@@ -254,7 +261,8 @@ pub mod Oracle {
                     };
                 };
 
-                // we are just updating tick last to indicate we processed all the ticks that were crossed in the swap
+                // we are just updating tick last to indicate we processed all the ticks that were
+                // crossed in the swap
                 self
                     .pool_state
                     .write(

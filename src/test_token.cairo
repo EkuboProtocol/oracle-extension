@@ -14,13 +14,16 @@ pub trait IERC20<TContractState> {
 #[starknet::contract]
 pub mod TestToken {
     use core::num::traits::zero::{Zero};
+    use starknet::storage::StorageMapReadAccess;
+    use starknet::storage::StorageMapWriteAccess;
+    use starknet::storage::{Map, StoragePointerWriteAccess};
     use starknet::{ContractAddress, get_caller_address};
     use super::{IERC20};
 
     #[storage]
     struct Storage {
-        balances: LegacyMap<ContractAddress, u256>,
-        allowances: LegacyMap<(ContractAddress, ContractAddress), u256>,
+        pub balances: Map<ContractAddress, u256>,
+        pub allowances: Map<(ContractAddress, ContractAddress), u256>,
     }
 
     #[derive(starknet::Event, Drop)]

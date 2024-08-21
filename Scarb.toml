@@ -3,13 +3,13 @@ name = "ekubo_oracle_extension"
 version = "0.1.0"
 description = "An geomean time weighted oracle extension for Ekubo Protocol"
 homepage = "https://ekubo.org"
-cairo-version = "2.6.3"
-edition = '2023_11'
+cairo-version = "2.7.1"
+edition = '2024_07'
 
 [dependencies]
 ekubo = { git = "https://github.com/ekuboprotocol/abis" }
-snforge_std = { git = "https://github.com/foundry-rs/starknet-foundry" }
-starknet = "=2.6.3"
+snforge_std = { git = "https://github.com/foundry-rs/starknet-foundry", tag = "v0.27.0" }
+starknet = "=2.7.1"
 
 [tool.fmt]
 sort-module-level-items = true
@@ -22,3 +22,11 @@ casm = true
 name = "mainnet"
 url = "https://free-rpc.nethermind.io/mainnet-juno"
 block_id.tag = "Latest"
+
+[[tool.snforge.fork]]
+name = "sepolia"
+url = "https://free-rpc.nethermind.io/sepolia-juno"
+block_id.tag = "Latest"
+
+[dev-dependencies]
+cairo_test = "2.7.1"
