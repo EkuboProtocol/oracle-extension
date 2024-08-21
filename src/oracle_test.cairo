@@ -64,13 +64,21 @@ fn router() -> IRouterDispatcher {
     }
 }
 
-fn setup(starting_balance: u256, fee: u128, tick_spacing: u128) -> PoolKey {
+fn setup() -> PoolKey {
     let oracle = deploy_oracle(ekubo_core());
     let token_class = declare("TestToken").unwrap();
     let owner = get_contract_address();
     let (tokenA, tokenB) = (
-        deploy_token(token_class, owner, starting_balance),
-        deploy_token(token_class, owner, starting_balance)
+        deploy_token(
+            token_class,
+            owner,
+            amount: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+        ),
+        deploy_token(
+            token_class,
+            owner,
+            amount: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+        )
     );
     let (token0, token1) = if (tokenA.contract_address < tokenB.contract_address) {
         (tokenA, tokenB)
@@ -81,8 +89,8 @@ fn setup(starting_balance: u256, fee: u128, tick_spacing: u128) -> PoolKey {
     let pool_key = PoolKey {
         token0: token0.contract_address,
         token1: token1.contract_address,
-        fee: fee,
-        tick_spacing: tick_spacing,
+        fee: 0,
+        tick_spacing: 354892,
         extension: oracle.contract_address,
     };
 
@@ -92,7 +100,7 @@ fn setup(starting_balance: u256, fee: u128, tick_spacing: u128) -> PoolKey {
 #[test]
 #[fork("mainnet")]
 fn test_oracle_sets_call_points() {
-    let pool_key = setup(starting_balance: 1000, fee: 0, tick_spacing: 100);
+    let pool_key = setup();
     assert_eq!(
         ekubo_core().get_call_points(pool_key.extension),
         CallPoints {
@@ -111,7 +119,7 @@ fn test_oracle_sets_call_points() {
 #[test]
 #[fork("mainnet")]
 fn test_get_tick_cumulative_increases_over_time() {
-    let pool_key = setup(starting_balance: 1000, fee: 0, tick_spacing: 100);
+    let pool_key = setup();
 
     ekubo_core().initialize_pool(pool_key, i129 { mag: 2, sign: false });
 

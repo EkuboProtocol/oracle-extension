@@ -185,6 +185,8 @@ pub mod Oracle {
             ref self: ContractState, caller: ContractAddress, pool_key: PoolKey, initial_tick: i129
         ) {
             self.check_caller_is_core();
+            assert(pool_key.fee.is_zero(), 'Fee must be 0');
+            assert(pool_key.tick_spacing == 354892, 'Tick spacing must be 354892');
 
             self
                 .pool_state
