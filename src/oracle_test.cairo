@@ -141,12 +141,12 @@ fn test_get_tick_cumulative_increases_over_time() {
     );
 
     assert_eq!(
-        oracle.get_price_x128(pool_key.token0, pool_key.token1, period: 10),
+        oracle.get_price_x128_over_last(pool_key.token0, pool_key.token1, period: 10),
         // approximately equal to 2 ** 2 ** 128
         680564375093695818504095915961505477038
     );
     assert_eq!(
-        oracle.get_price_x128(pool_key.token1, pool_key.token0, period: 10),
+        oracle.get_price_x128_over_last(pool_key.token1, pool_key.token0, period: 10),
         // approximately equal to 0.5 ** 2 ** 128
         170141273147561785870265730329854047831
     );

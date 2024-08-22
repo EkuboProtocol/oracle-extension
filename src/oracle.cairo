@@ -36,8 +36,18 @@ pub trait IOracle<TContractState> {
         self: @TContractState, token0: ContractAddress, token1: ContractAddress, period: u64
     ) -> i129;
 
-    // Returns the price of a token as a 128.128 over the last n secon
-    fn get_price_x128(
+    // Returns the geomean average price of a token as a 128.128 between the given start and end
+    // time
+    fn get_price_x128_over_period(
+        self: @TContractState,
+        base_token: ContractAddress,
+        quote_token: ContractAddress,
+        start_time: u64,
+        end_time: u64
+    ) -> u256;
+
+    // Returns the geomean average price of a token as a 128.128 over the last `period` secon
+    fn get_price_x128_over_last(
         self: @TContractState,
         base_token: ContractAddress,
         quote_token: ContractAddress,
@@ -296,18 +306,20 @@ pub mod Oracle {
             self.get_average_tick_over_period(token0, token1, now - period, now)
         }
 
-        fn get_price_x128(
+        fn get_price_x128_over_period(
             self: @ContractState,
             base_token: ContractAddress,
             quote_token: ContractAddress,
-            period: u64
+            start_time: u64,
+            end_time: u64,
         ) -> u256 {
             let (token0, token1, flipped) = if base_token < quote_token {
                 (base_token, quote_token, false)
             } else {
                 (quote_token, base_token, true)
             };
-            let mut average_tick = self.get_average_tick_over_last(token0, token1, period);
+            let mut average_tick = self
+                .get_average_tick_over_period(token0, token1, start_time, end_time);
 
             if flipped {
                 average_tick = -average_tick;
@@ -317,6 +329,16 @@ pub mod Oracle {
             let sqrt_ratio = math.tick_to_sqrt_ratio(average_tick);
             let ratio = WideMul::wide_mul(sqrt_ratio, sqrt_ratio);
             u256 { high: ratio.limb2, low: ratio.limb1 }
+        }
+
+        fn get_price_x128_over_last(
+            self: @ContractState,
+            base_token: ContractAddress,
+            quote_token: ContractAddress,
+            period: u64
+        ) -> u256 {
+            let now = get_block_timestamp();
+            self.get_price_x128_over_period(base_token, quote_token, now - period, now)
         }
     }
 
