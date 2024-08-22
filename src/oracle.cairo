@@ -51,6 +51,10 @@ pub trait IOracle<TContractState> {
         quote_token: ContractAddress,
         period: u64
     ) -> u256;
+
+    // Updates the call points for the latest version of this extension, or registers it on the
+    // first call
+    fn set_call_points(ref self: TContractState);
 }
 
 
@@ -89,18 +93,21 @@ pub mod Oracle {
 
     use super::{IOracle, ContractAddress, snapshot::{Snapshot}};
 
-    // Given the average tick (corresponding to a geomean average price) from one of the average
-    // tick methods, quote an amount of one token for another at that tick
-    pub fn quote_amount_from_tick(amount: u128, tick: i129) -> u256 {
+    // Converts a tick to the price as a 128.128 number
+    pub fn tick_to_price_x128(tick: i129) -> u256 {
         let math = mathlib();
         let sqrt_ratio = math.tick_to_sqrt_ratio(tick);
         // this is a 128.256 number, i.e. limb3 is always 0. we can shift it right 128 bits by
         // just taking limb2 and limb1 and get a 128.128 number
         let ratio = WideMul::wide_mul(sqrt_ratio, sqrt_ratio);
 
-        let result_x128 = WideMul::wide_mul(
-            u256 { high: ratio.limb2, low: ratio.limb1 }, amount.into()
-        );
+        u256 { high: ratio.limb2, low: ratio.limb1 }
+    }
+
+    // Given an amount0 and a tick corresponding to the average price in terms of amount1/amount0,
+    // return the quoted amount at that pri
+    pub fn quote_amount_from_tick(amount0: u128, tick: i129) -> u256 {
+        let result_x128 = WideMul::wide_mul(tick_to_price_x128(tick), amount0.into());
 
         u256 { high: result_x128.limb2, low: result_x128.limb1 }
     }
@@ -178,22 +185,7 @@ pub mod Oracle {
     fn constructor(ref self: ContractState, owner: ContractAddress, core: ICoreDispatcher) {
         self.initialize_owned(owner);
         self.core.write(core);
-        core
-            .set_call_points(
-                CallPoints {
-                    // to record the starting timestamp
-                    before_initialize_pool: true,
-                    after_initialize_pool: false,
-                    // in order to record the price at the end of the last block
-                    before_swap: true,
-                    after_swap: false,
-                    // the same as above
-                    before_update_position: true,
-                    after_update_position: false,
-                    before_collect_fees: false,
-                    after_collect_fees: false,
-                }
-            );
+        self.set_call_points();
     }
 
     #[generate_trait]
@@ -202,37 +194,6 @@ pub mod Oracle {
             let core = self.core.read();
             check_caller_is_core(core);
             core
-        }
-
-        fn update_pool(ref self: ContractState, core: ICoreDispatcher, pool_key: PoolKey) {
-            let key = pool_key.to_pair_key();
-            let state = self.pool_state.entry(key);
-
-            let count = state.count.read();
-            let last_snapshot = state.snapshots.read(count - 1);
-
-            let time = get_block_timestamp();
-            let time_passed = (time - last_snapshot.block_timestamp);
-
-            if (time_passed.is_zero()) {
-                return;
-            }
-
-            let tick = core.get_pool_price(pool_key).tick;
-
-            let snapshot = Snapshot {
-                block_timestamp: time,
-                tick_cumulative: last_snapshot.tick_cumulative
-                    + (tick * i129 { mag: time_passed.into(), sign: false }),
-            };
-            state.count.write(count + 1);
-            state.snapshots.write(count, snapshot);
-            self
-                .emit(
-                    SnapshotEvent {
-                        token0: pool_key.token0, token1: pool_key.token1, index: count, snapshot
-                    }
-                );
         }
     }
 
@@ -336,10 +297,7 @@ pub mod Oracle {
                 average_tick = -average_tick;
             }
 
-            let math = mathlib();
-            let sqrt_ratio = math.tick_to_sqrt_ratio(average_tick);
-            let ratio = WideMul::wide_mul(sqrt_ratio, sqrt_ratio);
-            u256 { high: ratio.limb2, low: ratio.limb1 }
+            tick_to_price_x128(average_tick)
         }
 
         fn get_price_x128_over_last(
@@ -350,6 +308,26 @@ pub mod Oracle {
         ) -> u256 {
             let now = get_block_timestamp();
             self.get_price_x128_over_period(base_token, quote_token, now - period, now)
+        }
+
+        fn set_call_points(ref self: ContractState) {
+            self
+                .core
+                .read()
+                .set_call_points(
+                    CallPoints {
+                        // to record the starting timestamp
+                        before_initialize_pool: true,
+                        after_initialize_pool: false,
+                        // in order to record the price at the end of the last block
+                        before_swap: true,
+                        after_swap: false,
+                        before_update_position: false,
+                        after_update_position: false,
+                        before_collect_fees: false,
+                        after_collect_fees: false,
+                    }
+                );
         }
     }
 
@@ -390,9 +368,36 @@ pub mod Oracle {
             pool_key: PoolKey,
             params: SwapParameters
         ) {
-            // update seconds per liquidity
             let core = self.check_caller_is_core();
-            self.update_pool(core, pool_key);
+            let key = pool_key.to_pair_key();
+            let state = self.pool_state.entry(key);
+
+            // we know if core is calling this, the pool is initialized i.e. count is greater tha 0
+            let count = state.count.read();
+            let last_snapshot = state.snapshots.read(count - 1);
+
+            let time = get_block_timestamp();
+            let time_passed = time - last_snapshot.block_timestamp;
+
+            if (time_passed.is_zero()) {
+                return;
+            }
+
+            let tick = core.get_pool_price(pool_key).tick;
+
+            let snapshot = Snapshot {
+                block_timestamp: time,
+                tick_cumulative: last_snapshot.tick_cumulative
+                    + (tick * i129 { mag: time_passed.into(), sign: false }),
+            };
+            state.count.write(count + 1);
+            state.snapshots.write(count, snapshot);
+            self
+                .emit(
+                    SnapshotEvent {
+                        token0: pool_key.token0, token1: pool_key.token1, index: count, snapshot
+                    }
+                );
         }
 
         fn after_swap(
@@ -411,8 +416,7 @@ pub mod Oracle {
             pool_key: PoolKey,
             params: UpdatePositionParameters
         ) {
-            let core = self.check_caller_is_core();
-            self.update_pool(core, pool_key);
+            assert(false, 'Call point not used');
         }
 
         fn after_update_position(

@@ -12,7 +12,8 @@ use ekubo::types::call_points::{CallPoints};
 use ekubo::types::i129::{i129};
 use ekubo::types::keys::{PoolKey, PositionKey};
 use ekubo_oracle_extension::oracle::{
-    IOracleDispatcher, IOracleDispatcherTrait, Oracle, Oracle::{quote_amount_from_tick}
+    IOracleDispatcher, IOracleDispatcherTrait, Oracle,
+    Oracle::{quote_amount_from_tick, tick_to_price_x128}
 };
 use ekubo_oracle_extension::test_token::{TestToken, IERC20Dispatcher, IERC20DispatcherTrait};
 use snforge_std::{
@@ -116,7 +117,7 @@ fn test_oracle_sets_call_points() {
             after_initialize_pool: false,
             before_swap: true,
             after_swap: false,
-            before_update_position: true,
+            before_update_position: false,
             after_update_position: false,
             before_collect_fees: false,
             after_collect_fees: false,
@@ -159,6 +160,40 @@ fn test_get_tick_cumulative_increases_over_time() {
         // approximately equal to 0.5 ** 2 ** 128
         170141273147561785870265730329854047831
     );
+}
+
+#[test]
+#[fork("mainnet")]
+fn test_tick_to_price_one_half() {
+    assert_eq!(
+        tick_to_price_x128(i129 { mag: 693148, sign: false }),
+        680565055658070912199914420057421438541
+    );
+    assert_eq!(
+        tick_to_price_x128(i129 { mag: 693148, sign: true }),
+        170141103006458779411486318843535204296
+    );
+}
+
+#[test]
+#[fork("mainnet")]
+fn test_tick_to_price_one() {
+    assert_eq!(tick_to_price_x128(Zero::zero()), u256 { high: 1, low: 0 });
+}
+
+#[test]
+#[fork("mainnet")]
+fn test_tick_to_price_max() {
+    assert_eq!(
+        tick_to_price_x128(i129 { mag: 88722883, sign: false }),
+        115792034457837262086784631235862882081404018044140045679084062790953130557576
+    );
+}
+
+#[test]
+#[fork("mainnet")]
+fn test_tick_to_price_min() {
+    assert_eq!(tick_to_price_x128(i129 { mag: 88722883, sign: true }), 1);
 }
 
 #[test]
