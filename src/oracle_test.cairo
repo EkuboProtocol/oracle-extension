@@ -122,27 +122,33 @@ fn test_oracle_sets_call_points() {
 #[fork("mainnet")]
 fn test_get_tick_cumulative_increases_over_time() {
     let pool_key = setup();
+    let oracle = IOracleDispatcher { contract_address: pool_key.extension };
 
     ekubo_core().initialize_pool(pool_key, i129 { mag: 693147, sign: false });
 
-    assert_eq!(
-        IOracleDispatcher { contract_address: pool_key.extension }
-            .get_tick_cumulative(pool_key.token0, pool_key.token1),
-        Zero::zero()
-    );
+    assert_eq!(oracle.get_tick_cumulative(pool_key.token0, pool_key.token1), Zero::zero());
 
     cheat_block_timestamp(pool_key.extension, get_block_timestamp() + 10, CheatSpan::Indefinite);
 
     assert_eq!(
-        IOracleDispatcher { contract_address: pool_key.extension }
-            .get_tick_cumulative(pool_key.token0, pool_key.token1),
+        oracle.get_tick_cumulative(pool_key.token0, pool_key.token1),
         i129 { mag: 6931470, sign: false }
     );
 
     assert_eq!(
-        IOracleDispatcher { contract_address: pool_key.extension }
-            .get_average_tick_over_last(pool_key.token0, pool_key.token1, period: 10),
+        oracle.get_average_tick_over_last(pool_key.token0, pool_key.token1, period: 10),
         i129 { mag: 693147, sign: false }
+    );
+
+    assert_eq!(
+        oracle.get_price_x128(pool_key.token0, pool_key.token1, period: 10),
+        // approximately equal to 2 ** 2 ** 128
+        680564375093695818504095915961505477038
+    );
+    assert_eq!(
+        oracle.get_price_x128(pool_key.token1, pool_key.token0, period: 10),
+        // approximately equal to 0.5 ** 2 ** 128
+        170141273147561785870265730329854047831
     );
 }
 

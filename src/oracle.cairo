@@ -35,6 +35,14 @@ pub trait IOracle<TContractState> {
     fn get_average_tick_over_last(
         self: @TContractState, token0: ContractAddress, token1: ContractAddress, period: u64
     ) -> i129;
+
+    // Returns the price of a token as a 128.128 over the last n secon
+    fn get_price_x128(
+        self: @TContractState,
+        base_token: ContractAddress,
+        quote_token: ContractAddress,
+        period: u64
+    ) -> u256;
 }
 
 
@@ -286,6 +294,29 @@ pub mod Oracle {
         ) -> i129 {
             let now = get_block_timestamp();
             self.get_average_tick_over_period(token0, token1, now - period, now)
+        }
+
+        fn get_price_x128(
+            self: @ContractState,
+            base_token: ContractAddress,
+            quote_token: ContractAddress,
+            period: u64
+        ) -> u256 {
+            let (token0, token1, flipped) = if base_token < quote_token {
+                (base_token, quote_token, false)
+            } else {
+                (quote_token, base_token, true)
+            };
+            let mut average_tick = self.get_average_tick_over_last(token0, token1, period);
+
+            if flipped {
+                average_tick = -average_tick;
+            }
+
+            let math = mathlib();
+            let sqrt_ratio = math.tick_to_sqrt_ratio(average_tick);
+            let ratio = WideMul::wide_mul(sqrt_ratio, sqrt_ratio);
+            u256 { high: ratio.limb2, low: ratio.limb1 }
         }
     }
 
