@@ -165,6 +165,35 @@ fn test_get_tick_cumulative_increases_over_time() {
     );
 }
 
+
+#[test]
+#[fork("mainnet")]
+#[should_panic(expected: ('Time before first snapshot',))]
+fn test_get_tick_cumulative_at_past() {
+    let pool_key = setup();
+    let oracle = IOracleDispatcher { contract_address: pool_key.extension };
+
+    let start = get_block_timestamp() + 10;
+    cheat_block_timestamp(pool_key.extension, start, CheatSpan::Indefinite);
+    ekubo_core().initialize_pool(pool_key, i129 { mag: 693147, sign: false });
+
+    oracle.get_tick_cumulative_at(pool_key.token0, pool_key.token1, start - 1);
+}
+
+#[test]
+#[fork("mainnet")]
+#[should_panic(expected: ('Time in future',))]
+fn test_get_tick_cumulative_at_future() {
+    let pool_key = setup();
+    let oracle = IOracleDispatcher { contract_address: pool_key.extension };
+
+    let start = get_block_timestamp() + 10;
+    cheat_block_timestamp(pool_key.extension, start, CheatSpan::Indefinite);
+    ekubo_core().initialize_pool(pool_key, i129 { mag: 693147, sign: false });
+
+    oracle.get_tick_cumulative_at(pool_key.token0, pool_key.token1, start + 1);
+}
+
 // assumes there is 0 liquidity so swaps are free
 fn move_price_to_tick(pool_key: PoolKey, tick: i129) {
     let tick_current = ekubo_core().get_pool_price(pool_key).tick;
@@ -244,12 +273,12 @@ fn test_get_tick_cumulative_at_history() {
     let oracle = IOracleDispatcher { contract_address: pool_key.extension };
 
     let start_time = get_block_timestamp();
-    ekubo_core().initialize_pool(pool_key, i129 { mag: 1, sign: false });
-    move_price_to_tick(pool_key, i129 { mag: 2, sign: false });
+    ekubo_core().initialize_pool(pool_key, i129 { mag: 100, sign: false });
+    move_price_to_tick(pool_key, i129 { mag: 200, sign: false });
     cheat_block_timestamp(pool_key.extension, start_time + 3, CheatSpan::Indefinite);
-    move_price_to_tick(pool_key, i129 { mag: 4, sign: true });
+    move_price_to_tick(pool_key, i129 { mag: 400, sign: true });
     cheat_block_timestamp(pool_key.extension, start_time + 5, CheatSpan::Indefinite);
-    move_price_to_tick(pool_key, i129 { mag: 1, sign: false });
+    move_price_to_tick(pool_key, i129 { mag: 100, sign: false });
     cheat_block_timestamp(pool_key.extension, start_time + 8, CheatSpan::Indefinite);
 
     assert_eq!(
@@ -258,17 +287,17 @@ fn test_get_tick_cumulative_at_history() {
 
     assert_eq!(
         oracle.get_tick_cumulative_at(pool_key.token0, pool_key.token1, start_time + 1),
-        i129 { mag: 2, sign: false }
+        i129 { mag: 200, sign: false }
     );
 
     assert_eq!(
         oracle.get_tick_cumulative_at(pool_key.token0, pool_key.token1, start_time + 4),
-        i129 { mag: 2, sign: false }
+        i129 { mag: 200, sign: false }
     );
 
     assert_eq!(
         oracle.get_tick_cumulative_at(pool_key.token0, pool_key.token1, start_time + 5),
-        i129 { mag: 2, sign: true }
+        i129 { mag: 200, sign: true }
     );
 
     assert_eq!(
@@ -278,7 +307,7 @@ fn test_get_tick_cumulative_at_history() {
 
     // 2 * 3 + (-4 * 2) + (1 * 3)
     assert_eq!(
-        oracle.get_tick_cumulative(pool_key.token0, pool_key.token1), i129 { mag: 1, sign: false }
+        oracle.get_tick_cumulative(pool_key.token0, pool_key.token1), i129 { mag: 100, sign: false }
     );
 }
 

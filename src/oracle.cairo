@@ -208,6 +208,7 @@ pub mod Oracle {
         fn get_tick_cumulative_at(
             self: @ContractState, token0: ContractAddress, token1: ContractAddress, time: u64
         ) -> i129 {
+            assert(time <= get_block_timestamp(), 'Time in future');
             let key = (token0, token1);
             let entry = self.pool_state.entry(key);
             let count = entry.count.read();
@@ -243,6 +244,7 @@ pub mod Oracle {
                 snapshot.tick_cumulative
             } else {
                 let tick = if index == count - 1 {
+                    assert(time <= get_block_timestamp(), 'Time in future');
                     self.core.read().get_pool_price(key.to_pool_key()).tick
                 } else {
                     let next = entry.snapshots.read(index + 1);
