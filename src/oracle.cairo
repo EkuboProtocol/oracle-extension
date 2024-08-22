@@ -9,13 +9,34 @@ use ekubo::types::keys::{PoolKey};
 use starknet::{ContractAddress};
 
 #[starknet::interface]
-pub trait IOracle<TStorage> {
+pub trait IOracle<TContractState> {
     // Returns the cumulative tick value for a given pool, useful for computing a geomean oracle
     // over a period of time.
     fn get_tick_cumulative(
-        self: @TStorage, token0: ContractAddress, token1: ContractAddress
+        self: @TContractState, token0: ContractAddress, token1: ContractAddress
+    ) -> i129;
+
+    // Returns the cumulative tick at the given time. The time must be in between the initialization
+    // time of the pool and the current block timestamp.
+    fn get_tick_cumulative_at(
+        self: @TContractState, token0: ContractAddress, token1: ContractAddress, time: u64
+    ) -> i129;
+
+    // Returns the time weighted average tick between the given start and end time
+    fn get_average_tick_over_period(
+        self: @TContractState,
+        token0: ContractAddress,
+        token1: ContractAddress,
+        start_time: u64,
+        end_time: u64
+    ) -> i129;
+
+    // Returns the time weighted average tick over the last `period` seconds
+    fn get_average_tick_over_last(
+        self: @TContractState, token0: ContractAddress, token1: ContractAddress, period: u64
     ) -> i129;
 }
+
 
 // Measures the oracle
 #[starknet::contract]
@@ -32,6 +53,9 @@ pub mod Oracle {
     use ekubo::interfaces::core::{
         ICoreDispatcher, ICoreDispatcherTrait, IExtension, SwapParameters, UpdatePositionParameters
     };
+    use ekubo::interfaces::mathlib::{
+        IMathLibLibraryDispatcher, IMathLibDispatcherTrait, dispatcher as mathlib
+    };
     use ekubo::types::bounds::{Bounds};
     use ekubo::types::call_points::{CallPoints};
     use ekubo::types::delta::{Delta};
@@ -41,8 +65,28 @@ pub mod Oracle {
         Map, StoragePointerWriteAccess, StorageMapReadAccess, StoragePointerReadAccess,
         StorageMapWriteAccess
     };
+    use core::num::traits::{WideMul};
+    use core::integer::{u512_safe_div_rem_by_u256};
+
     use starknet::{get_block_timestamp, get_caller_address, get_contract_address};
+
     use super::{IOracle, ContractAddress, PoolKey, snapshot::{Snapshot}};
+
+    // Given the average tick (corresponding to a geomean average price) from one of the average
+    // tick methods, quote an amount of one token for another at that tick
+    pub fn quote_amount_from_tick(amount: u128, tick: i129) -> u256 {
+        let math = mathlib();
+        let sqrt_ratio = math.tick_to_sqrt_ratio(tick);
+        // this is a 128.256 number, i.e. limb3 is always 0. we can shift it right 128 bits by
+        // just taking limb2 and limb1 and get a 128.128 number
+        let ratio = WideMul::wide_mul(sqrt_ratio, sqrt_ratio);
+
+        let result_x128 = WideMul::wide_mul(
+            u256 { high: ratio.limb2, low: ratio.limb1 }, amount.into()
+        );
+
+        u256 { high: result_x128.limb2, low: result_x128.limb1 }
+    }
 
     component!(path: owned_component, storage: owned, event: OwnedEvent);
     #[abi(embed_v0)]
@@ -168,22 +212,80 @@ pub mod Oracle {
         fn get_tick_cumulative(
             self: @ContractState, token0: ContractAddress, token1: ContractAddress
         ) -> i129 {
+            self.get_tick_cumulative_at(token0, token1, get_block_timestamp())
+        }
+
+        fn get_tick_cumulative_at(
+            self: @ContractState, token0: ContractAddress, token1: ContractAddress, time: u64
+        ) -> i129 {
             let key = (token0, token1);
             let entry = self.pool_state.entry(key);
             let count = entry.count.read();
             assert(count.is_non_zero(), 'Pool not initialized');
 
-            let time = get_block_timestamp();
-            let last_snapshot = entry.snapshots.read(count - 1);
+            let mut l = 0_u64;
+            let mut r = count;
+            let (index, snapshot) = loop {
+                let mid = (l + r) / 2;
+                let snap = entry.snapshots.read(mid);
+                if snap.block_timestamp == time {
+                    break (mid, snap);
+                } else if snap.block_timestamp > time {
+                    assert(mid.is_non_zero(), 'Time before first snapshot');
+                    r = mid;
+                } else {
+                    let next = mid + 1;
+                    // this is the last snapshot, and it's before the specified time
+                    if (next >= count) {
+                        break (mid, snap);
+                    } else {
+                        let next_snap = entry.snapshots.read(next);
+                        if next_snap.block_timestamp > time {
+                            break (mid, snap);
+                        } else {
+                            l = next;
+                        }
+                    }
+                }
+            };
 
-            if (time == last_snapshot.block_timestamp) {
-                last_snapshot.tick_cumulative
+            if snapshot.block_timestamp == time {
+                snapshot.tick_cumulative
             } else {
-                let price = self.core.read().get_pool_price(key.to_pool_key());
-                last_snapshot.tick_cumulative
-                    + (price.tick
-                        * i129 { mag: (time - last_snapshot.block_timestamp).into(), sign: false })
+                let tick = if index == count - 1 {
+                    self.core.read().get_pool_price(key.to_pool_key()).tick
+                } else {
+                    let next = entry.snapshots.read(index + 1);
+                    (next.tick_cumulative - snapshot.tick_cumulative)
+                        / i129 {
+                            mag: (next.block_timestamp - snapshot.block_timestamp).into(),
+                            sign: false
+                        }
+                };
+                snapshot.tick_cumulative
+                    + tick * i129 { mag: (time - snapshot.block_timestamp).into(), sign: false }
             }
+        }
+
+        fn get_average_tick_over_period(
+            self: @ContractState,
+            token0: ContractAddress,
+            token1: ContractAddress,
+            start_time: u64,
+            end_time: u64
+        ) -> i129 {
+            assert(end_time > start_time, 'Period must be > 0 seconds long');
+            let start_cumulative = self.get_tick_cumulative_at(token0, token1, start_time);
+            let end_cumulative = self.get_tick_cumulative_at(token0, token1, end_time);
+            let difference = end_cumulative - start_cumulative;
+            difference / i129 { mag: (end_time - start_time).into(), sign: false }
+        }
+
+        fn get_average_tick_over_last(
+            self: @ContractState, token0: ContractAddress, token1: ContractAddress, period: u64
+        ) -> i129 {
+            let now = get_block_timestamp();
+            self.get_average_tick_over_period(token0, token1, now - period, now)
         }
     }
 

@@ -10,7 +10,9 @@ use ekubo::types::bounds::{Bounds};
 use ekubo::types::call_points::{CallPoints};
 use ekubo::types::i129::{i129};
 use ekubo::types::keys::{PoolKey, PositionKey};
-use ekubo_oracle_extension::oracle::{IOracleDispatcher, IOracleDispatcherTrait, Oracle};
+use ekubo_oracle_extension::oracle::{
+    IOracleDispatcher, IOracleDispatcherTrait, Oracle, Oracle::{quote_amount_from_tick}
+};
 use ekubo_oracle_extension::test_token::{TestToken, IERC20Dispatcher, IERC20DispatcherTrait};
 use snforge_std::{
     declare, ContractClassTrait, cheat_caller_address, cheat_block_timestamp, CheatSpan,
@@ -121,7 +123,7 @@ fn test_oracle_sets_call_points() {
 fn test_get_tick_cumulative_increases_over_time() {
     let pool_key = setup();
 
-    ekubo_core().initialize_pool(pool_key, i129 { mag: 2, sign: false });
+    ekubo_core().initialize_pool(pool_key, i129 { mag: 693147, sign: false });
 
     assert_eq!(
         IOracleDispatcher { contract_address: pool_key.extension }
@@ -134,6 +136,19 @@ fn test_get_tick_cumulative_increases_over_time() {
     assert_eq!(
         IOracleDispatcher { contract_address: pool_key.extension }
             .get_tick_cumulative(pool_key.token0, pool_key.token1),
-        i129 { mag: 20, sign: false }
+        i129 { mag: 6931470, sign: false }
     );
+
+    assert_eq!(
+        IOracleDispatcher { contract_address: pool_key.extension }
+            .get_average_tick_over_last(pool_key.token0, pool_key.token1, period: 10),
+        i129 { mag: 693147, sign: false }
+    );
+}
+
+#[test]
+#[fork("mainnet")]
+fn test_quote_amount_from_tick() {
+    assert_eq!(quote_amount_from_tick(100, i129 { mag: 693148, sign: false }), 200);
+    assert_eq!(quote_amount_from_tick(100, i129 { mag: 693148, sign: true }), 49);
 }
