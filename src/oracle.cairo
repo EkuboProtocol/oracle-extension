@@ -202,7 +202,7 @@ pub mod Oracle {
             let last_snapshot = state.snapshots.read(count - 1);
 
             let time = get_block_timestamp();
-            let time_passed: u128 = (time - last_snapshot.block_timestamp).into();
+            let time_passed = (time - last_snapshot.block_timestamp);
 
             if (time_passed.is_zero()) {
                 return;
@@ -218,7 +218,7 @@ pub mod Oracle {
                     Snapshot {
                         block_timestamp: time,
                         tick_cumulative: last_snapshot.tick_cumulative
-                            + (tick * i129 { mag: time_passed, sign: false }),
+                            + (tick * i129 { mag: time_passed.into(), sign: false }),
                     }
                 );
         }
