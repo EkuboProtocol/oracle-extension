@@ -3,52 +3,40 @@ use core::traits::{TryInto, Into};
 use ekubo::types::i129::{i129, i129Trait};
 use starknet::storage_access::{StorePacking};
 
-// 192 bits total, fits in a single felt
 #[derive(Copy, Drop, PartialEq)]
 pub struct Snapshot {
-    // 64 bits
+    // The timestamp of the block when the snapshot was taken
     pub block_timestamp: u64,
-    // 96 bits
+    // The cumulative value of tick * seconds passed since the pool was initialized to the time this
+    // snapshot was taken
     pub tick_cumulative: i129,
 }
 
-const DENOM_x160: NonZero<u256> = 0x10000000000000000000000000000000000000000;
-const DENOM_x64: NonZero<u256> = 0x10000000000000000;
-
 impl SnapshotPacking of StorePacking<Snapshot, felt252> {
     fn pack(value: Snapshot) -> felt252 {
-        assert(value.tick_cumulative.mag < 0x800000000000000000000000, 'TICK_CUMULATIVE_TOO_LARGE');
-
-        let mut total: u256 = value.block_timestamp.into();
-
-        total +=
-            (if value.tick_cumulative.is_negative() {
-                value.tick_cumulative.mag + 0x800000000000000000000000
+        let total = u256 {
+            high: if value.tick_cumulative.sign {
+                value.block_timestamp.into() + 0x10000000000000000_u128
             } else {
-                value.tick_cumulative.mag
-            })
-            .into()
-            * 0x10000000000000000;
-
+                value.block_timestamp.into()
+            },
+            low: value.tick_cumulative.mag
+        };
         total.try_into().unwrap()
     }
 
     fn unpack(value: felt252) -> Snapshot {
-        let value: u256 = value.into();
+        let split: u256 = value.into();
 
-        let (_tick_packed, value) = DivRem::div_rem(value, DENOM_x160);
-
-        let (tick_cumulative_packed, block_timestamp) = DivRem::div_rem(value, DENOM_x64);
-
-        let tick_cumulative = if (tick_cumulative_packed > 0x800000000000000000000000) {
-            i129 {
-                mag: (tick_cumulative_packed - 0x800000000000000000000000).try_into().unwrap(),
-                sign: true
-            }
+        let (block_timestamp, sign) = if split.high >= 0x10000000000000000_u128 {
+            (split.high - 0x10000000000000000_u128, true)
         } else {
-            i129 { mag: tick_cumulative_packed.try_into().unwrap(), sign: false }
+            (split.high, false)
         };
 
-        Snapshot { block_timestamp: block_timestamp.try_into().unwrap(), tick_cumulative }
+        Snapshot {
+            block_timestamp: block_timestamp.try_into().unwrap(),
+            tick_cumulative: i129 { mag: split.low, sign }
+        }
     }
 }
