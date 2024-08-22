@@ -3,7 +3,7 @@ use core::traits::{TryInto, Into};
 use ekubo::types::i129::{i129, i129Trait};
 use starknet::storage_access::{StorePacking};
 
-#[derive(Copy, Drop, PartialEq)]
+#[derive(Copy, Drop, PartialEq, Serde)]
 pub struct Snapshot {
     // The timestamp of the block when the snapshot was taken
     pub block_timestamp: u64,

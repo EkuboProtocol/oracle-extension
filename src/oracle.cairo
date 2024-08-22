@@ -131,10 +131,19 @@ pub mod Oracle {
     }
 
     #[derive(starknet::Event, Drop)]
+    struct SnapshotEvent {
+        token0: ContractAddress,
+        token1: ContractAddress,
+        index: u64,
+        snapshot: Snapshot,
+    }
+
+    #[derive(starknet::Event, Drop)]
     #[event]
     enum Event {
         UpgradeableEvent: upgradeable_component::Event,
         OwnedEvent: owned_component::Event,
+        SnapshotEvent: SnapshotEvent
     }
 
     #[abi(embed_v0)]
@@ -211,15 +220,17 @@ pub mod Oracle {
 
             let tick = core.get_pool_price(pool_key).tick;
 
+            let snapshot = Snapshot {
+                block_timestamp: time,
+                tick_cumulative: last_snapshot.tick_cumulative
+                    + (tick * i129 { mag: time_passed.into(), sign: false }),
+            };
             state.count.write(count + 1);
-            state
-                .snapshots
-                .write(
-                    count,
-                    Snapshot {
-                        block_timestamp: time,
-                        tick_cumulative: last_snapshot.tick_cumulative
-                            + (tick * i129 { mag: time_passed.into(), sign: false }),
+            state.snapshots.write(count, snapshot);
+            self
+                .emit(
+                    SnapshotEvent {
+                        token0: pool_key.token0, token1: pool_key.token1, index: count, snapshot
                     }
                 );
         }
@@ -354,15 +365,17 @@ pub mod Oracle {
 
             let state = self.pool_state.entry(key);
 
+            let snapshot = Snapshot {
+                block_timestamp: get_block_timestamp(), tick_cumulative: Zero::zero(),
+            };
             state.count.write(1);
-            state
-                .snapshots
-                .write(
-                    0,
-                    Snapshot {
-                        block_timestamp: get_block_timestamp(), tick_cumulative: Zero::zero(),
+            state.snapshots.write(0, snapshot);
+            self
+                .emit(
+                    SnapshotEvent {
+                        token0: pool_key.token0, token1: pool_key.token1, index: 0, snapshot
                     }
-                );
+                )
         }
 
         fn after_initialize_pool(
