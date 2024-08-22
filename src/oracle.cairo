@@ -166,7 +166,8 @@ pub mod Oracle {
     }
 
     #[constructor]
-    fn constructor(ref self: ContractState, core: ICoreDispatcher) {
+    fn constructor(ref self: ContractState, owner: ContractAddress, core: ICoreDispatcher) {
+        self.initialize_owned(owner);
         self.core.write(core);
         core
             .set_call_points(

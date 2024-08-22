@@ -1,6 +1,7 @@
 use core::num::traits::{Zero};
 use core::option::{OptionTrait};
 use core::traits::{TryInto};
+use ekubo::components::owned::{IOwnedDispatcher, IOwnedDispatcherTrait};
 use ekubo::interfaces::core::{
     ICoreDispatcherTrait, ICoreDispatcher, IExtensionDispatcher, IExtensionDispatcherTrait
 };
@@ -33,10 +34,15 @@ fn deploy_token(
     IERC20Dispatcher { contract_address }
 }
 
-fn deploy_oracle(core: ICoreDispatcher) -> IExtensionDispatcher {
+fn default_owner() -> ContractAddress {
+    contract_address_const::<0xdeadbeefdeadbeef>()
+}
+
+
+fn deploy_oracle(owner: ContractAddress, core: ICoreDispatcher) -> IExtensionDispatcher {
     let contract = declare("Oracle").unwrap();
     let (contract_address, _) = contract
-        .deploy(@array![core.contract_address.into()])
+        .deploy(@array![default_owner().into(), core.contract_address.into()])
         .expect('Deploy failed');
 
     IExtensionDispatcher { contract_address }
@@ -67,7 +73,7 @@ fn router() -> IRouterDispatcher {
 }
 
 fn setup() -> PoolKey {
-    let oracle = deploy_oracle(ekubo_core());
+    let oracle = deploy_oracle(default_owner(), ekubo_core());
     let token_class = declare("TestToken").unwrap();
     let owner = get_contract_address();
     let (tokenA, tokenB) = (
@@ -115,6 +121,9 @@ fn test_oracle_sets_call_points() {
             before_collect_fees: false,
             after_collect_fees: false,
         }
+    );
+    assert_eq!(
+        IOwnedDispatcher { contract_address: pool_key.extension }.get_owner(), default_owner()
     );
 }
 
