@@ -2,10 +2,8 @@ mod snapshot;
 
 #[cfg(test)]
 mod snapshot_test;
-use ekubo::types::bounds::{Bounds};
-use ekubo::types::i129::{i129};
-use ekubo::types::keys::{PoolKey};
 
+use ekubo::types::i129::{i129};
 use starknet::{ContractAddress};
 
 #[starknet::interface]
@@ -59,6 +57,8 @@ pub trait IOracle<TContractState> {
 // Measures the oracle
 #[starknet::contract]
 pub mod Oracle {
+    use core::integer::{u512_safe_div_rem_by_u256};
+    use core::num::traits::{WideMul};
     use core::num::traits::{Zero};
     use core::option::{OptionTrait};
     use core::traits::{Into, TryInto};
@@ -78,17 +78,16 @@ pub mod Oracle {
     use ekubo::types::call_points::{CallPoints};
     use ekubo::types::delta::{Delta};
     use ekubo::types::i129::{i129};
+    use ekubo::types::keys::{PoolKey};
     use starknet::storage::StoragePathEntry;
     use starknet::storage::{
         Map, StoragePointerWriteAccess, StorageMapReadAccess, StoragePointerReadAccess,
         StorageMapWriteAccess
     };
-    use core::num::traits::{WideMul};
-    use core::integer::{u512_safe_div_rem_by_u256};
 
     use starknet::{get_block_timestamp, get_caller_address, get_contract_address};
 
-    use super::{IOracle, ContractAddress, PoolKey, snapshot::{Snapshot}};
+    use super::{IOracle, ContractAddress, snapshot::{Snapshot}};
 
     // Given the average tick (corresponding to a geomean average price) from one of the average
     // tick methods, quote an amount of one token for another at that tick
