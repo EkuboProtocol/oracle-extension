@@ -107,7 +107,7 @@ fn test_oracle_sets_call_points() {
             before_initialize_pool: true,
             after_initialize_pool: false,
             before_swap: true,
-            after_swap: true,
+            after_swap: false,
             before_update_position: true,
             after_update_position: false,
             before_collect_fees: false,
@@ -124,14 +124,16 @@ fn test_get_tick_cumulative_increases_over_time() {
     ekubo_core().initialize_pool(pool_key, i129 { mag: 2, sign: false });
 
     assert_eq!(
-        IOracleDispatcher { contract_address: pool_key.extension }.get_tick_cumulative(pool_key),
+        IOracleDispatcher { contract_address: pool_key.extension }
+            .get_tick_cumulative(pool_key.token0, pool_key.token1),
         Zero::zero()
     );
 
     cheat_block_timestamp(pool_key.extension, get_block_timestamp() + 10, CheatSpan::Indefinite);
 
     assert_eq!(
-        IOracleDispatcher { contract_address: pool_key.extension }.get_tick_cumulative(pool_key),
+        IOracleDispatcher { contract_address: pool_key.extension }
+            .get_tick_cumulative(pool_key.token0, pool_key.token1),
         i129 { mag: 20, sign: false }
     );
 }
