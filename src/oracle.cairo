@@ -138,7 +138,7 @@ pub mod Oracle {
     }
 
     #[abi(embed_v0)]
-    impl LimitOrdersHasInterface of IHasInterface<ContractState> {
+    impl HasInterfaceImpl of IHasInterface<ContractState> {
         fn get_primary_interface_id(self: @ContractState) -> felt252 {
             return selector!("ekubo_oracle_extension::oracle::Oracle");
         }
