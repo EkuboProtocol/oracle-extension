@@ -13,7 +13,7 @@ use ekubo::types::i129::{i129};
 use ekubo::types::keys::{PoolKey, PositionKey};
 use ekubo_oracle_extension::oracle::{
     IOracleDispatcher, IOracleDispatcherTrait, Oracle,
-    Oracle::{quote_amount_from_tick, tick_to_price_x128}
+    Oracle::{MAX_TICK_SPACING, quote_amount_from_tick, tick_to_price_x128}
 };
 use ekubo::interfaces::mathlib::{
     IMathLibLibraryDispatcher, IMathLibDispatcherTrait, dispatcher as mathlib
@@ -120,7 +120,7 @@ fn test_oracle_sets_call_points() {
             after_initialize_pool: false,
             before_swap: true,
             after_swap: false,
-            before_update_position: false,
+            before_update_position: true,
             after_update_position: false,
             before_collect_fees: false,
             after_collect_fees: false,
@@ -129,6 +129,22 @@ fn test_oracle_sets_call_points() {
     assert_eq!(
         IOwnedDispatcher { contract_address: pool_key.extension }.get_owner(), default_owner()
     );
+}
+
+#[test]
+#[fork("mainnet")]
+#[should_panic(expected: ('Position must be full range',))]
+fn test_position_must_be_full_range() {
+    let pool_key = setup();
+    ekubo_core().initialize_pool(pool_key, i129 { mag: 0, sign: false });
+    IERC20Dispatcher { contract_address: pool_key.token0 }
+        .transfer(positions().contract_address, 100);
+    positions()
+        .mint_and_deposit(
+            pool_key,
+            Bounds { lower: Zero::zero(), upper: i129 { mag: MAX_TICK_SPACING, sign: false } },
+            Zero::zero()
+        );
 }
 
 #[test]

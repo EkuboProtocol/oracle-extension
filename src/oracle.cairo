@@ -324,7 +324,8 @@ pub mod Oracle {
                         // in order to record the price at the end of the last block
                         before_swap: true,
                         after_swap: false,
-                        before_update_position: false,
+                        // in order to limit position creation to max bounds positions
+                        before_update_position: true,
                         after_update_position: false,
                         before_collect_fees: false,
                         after_collect_fees: false,
@@ -333,7 +334,7 @@ pub mod Oracle {
         }
     }
 
-    const MAX_TICK_SPACING: u128 = 354892;
+    pub(crate) const MAX_TICK_SPACING: u128 = 354892;
 
     #[abi(embed_v0)]
     impl OracleExtension of IExtension<ContractState> {
@@ -418,7 +419,14 @@ pub mod Oracle {
             pool_key: PoolKey,
             params: UpdatePositionParameters
         ) {
-            assert(false, 'Call point not used');
+            assert(
+                params
+                    .bounds == Bounds {
+                        lower: i129 { mag: 88368108, sign: true },
+                        upper: i129 { mag: 88368108, sign: false },
+                    },
+                'Position must be full range'
+            );
         }
 
         fn after_update_position(
