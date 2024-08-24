@@ -5,6 +5,9 @@ use ekubo::components::owned::{IOwnedDispatcher, IOwnedDispatcherTrait};
 use ekubo::interfaces::core::{
     ICoreDispatcherTrait, ICoreDispatcher, IExtensionDispatcher, IExtensionDispatcherTrait
 };
+use ekubo::interfaces::mathlib::{
+    IMathLibLibraryDispatcher, IMathLibDispatcherTrait, dispatcher as mathlib
+};
 use ekubo::interfaces::positions::{IPositionsDispatcher, IPositionsDispatcherTrait};
 use ekubo::interfaces::router::{IRouterDispatcher, IRouterDispatcherTrait, RouteNode, TokenAmount};
 use ekubo::types::bounds::{Bounds};
@@ -14,9 +17,6 @@ use ekubo::types::keys::{PoolKey, PositionKey};
 use ekubo_oracle_extension::oracle::{
     IOracleDispatcher, IOracleDispatcherTrait, Oracle,
     Oracle::{MAX_TICK_SPACING, quote_amount_from_tick, tick_to_price_x128}
-};
-use ekubo::interfaces::mathlib::{
-    IMathLibLibraryDispatcher, IMathLibDispatcherTrait, dispatcher as mathlib
 };
 use ekubo_oracle_extension::test_token::{TestToken, IERC20Dispatcher, IERC20DispatcherTrait};
 use snforge_std::{
@@ -167,6 +167,12 @@ fn test_get_tick_cumulative_increases_over_time() {
     assert_eq!(
         oracle.get_average_tick_over_last(pool_key.token0, pool_key.token1, period: 10),
         i129 { mag: 693147, sign: false }
+    );
+
+    // flip the tokens and you should get the negative tick
+    assert_eq!(
+        oracle.get_average_tick_over_last(pool_key.token1, pool_key.token0, period: 10),
+        i129 { mag: 693147, sign: true }
     );
 
     assert_eq!(

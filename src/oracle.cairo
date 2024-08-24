@@ -23,15 +23,18 @@ pub trait IOracle<TContractState> {
     // Returns the time weighted average tick between the given start and end time
     fn get_average_tick_over_period(
         self: @TContractState,
-        token0: ContractAddress,
-        token1: ContractAddress,
+        base_token: ContractAddress,
+        quote_token: ContractAddress,
         start_time: u64,
         end_time: u64
     ) -> i129;
 
     // Returns the time weighted average tick over the last `period` seconds
     fn get_average_tick_over_last(
-        self: @TContractState, token0: ContractAddress, token1: ContractAddress, period: u64
+        self: @TContractState,
+        base_token: ContractAddress,
+        quote_token: ContractAddress,
+        period: u64
     ) -> i129;
 
     // Returns the geomean average price of a token as a 128.128 between the given start and end
@@ -261,23 +264,31 @@ pub mod Oracle {
 
         fn get_average_tick_over_period(
             self: @ContractState,
-            token0: ContractAddress,
-            token1: ContractAddress,
+            base_token: ContractAddress,
+            quote_token: ContractAddress,
             start_time: u64,
             end_time: u64
         ) -> i129 {
             assert(end_time > start_time, 'Period must be > 0 seconds long');
+            let (token0, token1, flipped) = if base_token < quote_token {
+                (base_token, quote_token, false)
+            } else {
+                (quote_token, base_token, true)
+            };
             let start_cumulative = self.get_tick_cumulative_at(token0, token1, start_time);
             let end_cumulative = self.get_tick_cumulative_at(token0, token1, end_time);
             let difference = end_cumulative - start_cumulative;
-            difference / i129 { mag: (end_time - start_time).into(), sign: false }
+            difference / i129 { mag: (end_time - start_time).into(), sign: flipped }
         }
 
         fn get_average_tick_over_last(
-            self: @ContractState, token0: ContractAddress, token1: ContractAddress, period: u64
+            self: @ContractState,
+            base_token: ContractAddress,
+            quote_token: ContractAddress,
+            period: u64
         ) -> i129 {
             let now = get_block_timestamp();
-            self.get_average_tick_over_period(token0, token1, now - period, now)
+            self.get_average_tick_over_period(base_token, quote_token, now - period, now)
         }
 
         fn get_price_x128_over_period(
@@ -287,19 +298,9 @@ pub mod Oracle {
             start_time: u64,
             end_time: u64,
         ) -> u256 {
-            let (token0, token1, flipped) = if base_token < quote_token {
-                (base_token, quote_token, false)
-            } else {
-                (quote_token, base_token, true)
-            };
-            let mut average_tick = self
-                .get_average_tick_over_period(token0, token1, start_time, end_time);
-
-            if flipped {
-                average_tick = -average_tick;
-            }
-
-            tick_to_price_x128(average_tick)
+            tick_to_price_x128(
+                self.get_average_tick_over_period(base_token, quote_token, start_time, end_time)
+            )
         }
 
         fn get_price_x128_over_last(
