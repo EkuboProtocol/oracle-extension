@@ -18,6 +18,9 @@ sort-module-level-items = true
 allowed-libfuncs-list.name = "audited"
 casm = true
 
+[lib]
+allowed-libfuncs-list.name = "audited"
+
 [[tool.snforge.fork]]
 name = "mainnet"
 url = "https://free-rpc.nethermind.io/mainnet-juno"
