@@ -1,7 +1,7 @@
 use starknet::{ContractAddress};
 
 #[starknet::interface]
-pub trait IERC20<TContractState> {
+pub(crate) trait IERC20<TContractState> {
     fn balanceOf(self: @TContractState, account: ContractAddress) -> u256;
     fn allowance(self: @TContractState, owner: ContractAddress, spender: ContractAddress) -> u256;
     fn transfer(ref self: TContractState, recipient: ContractAddress, amount: u256) -> bool;
@@ -12,7 +12,7 @@ pub trait IERC20<TContractState> {
 }
 
 #[starknet::contract]
-pub mod TestToken {
+pub(crate) mod TestToken {
     use core::num::traits::zero::{Zero};
     use starknet::storage::StorageMapReadAccess;
     use starknet::storage::StorageMapWriteAccess;

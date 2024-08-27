@@ -1,5 +1,6 @@
-mod oracle;
+pub mod oracle;
 
 #[cfg(test)]
-mod oracle_test;
-mod test_token;
+pub(crate) mod oracle_test;
+#[cfg(test)]
+pub(crate) mod test_token;
