@@ -47,7 +47,7 @@ pub trait IOracle<TContractState> {
         end_time: u64
     ) -> u256;
 
-    // Returns the geomean average price of a token as a 128.128 over the last `period` secon
+    // Returns the geomean average price of a token as a 128.128 over the last `period` seconds
     fn get_price_x128_over_last(
         self: @TContractState,
         base_token: ContractAddress,
@@ -55,8 +55,8 @@ pub trait IOracle<TContractState> {
         period: u64
     ) -> u256;
 
-    // Updates the call points for the latest version of this extension, or registers it on the
-    // first call
+    // Updates the call points for the latest version of this extension, or simply registers it on
+    // the first call
     fn set_call_points(ref self: TContractState);
 }
 
