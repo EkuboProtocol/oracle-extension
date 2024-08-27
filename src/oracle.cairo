@@ -60,8 +60,6 @@ pub trait IOracle<TContractState> {
     fn set_call_points(ref self: TContractState);
 }
 
-
-// Measures the oracle
 #[starknet::contract]
 pub mod Oracle {
     use core::integer::{u512_safe_div_rem_by_u256};
