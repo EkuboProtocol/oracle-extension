@@ -335,6 +335,63 @@ fn test_get_tick_cumulative_at_history() {
 
 #[test]
 #[fork("mainnet")]
+fn test_get_price_history() {
+    let pool_key = setup();
+    let oracle = IOracleDispatcher { contract_address: pool_key.extension };
+
+    let start_time = 100;
+    cheat_block_timestamp(pool_key.extension, start_time, CheatSpan::Indefinite);
+    ekubo_core().initialize_pool(pool_key, i129 { mag: 100, sign: false });
+    move_price_to_tick(pool_key, i129 { mag: 200, sign: false });
+    cheat_block_timestamp(pool_key.extension, start_time + 30, CheatSpan::Indefinite);
+    move_price_to_tick(pool_key, i129 { mag: 400, sign: true });
+    cheat_block_timestamp(pool_key.extension, start_time + 50, CheatSpan::Indefinite);
+    move_price_to_tick(pool_key, i129 { mag: 100, sign: false });
+    cheat_block_timestamp(pool_key.extension, start_time + 80, CheatSpan::Indefinite);
+    let end_time = start_time + 100;
+    cheat_block_timestamp(pool_key.extension, end_time, CheatSpan::Indefinite);
+
+    assert_eq!(
+        oracle
+            .get_average_tick_history(
+                pool_key.token0,
+                pool_key.token1,
+                end_time: end_time,
+                num_intervals: 5,
+                interval_seconds: 20
+            ),
+        array![
+            i129 { mag: 200, sign: false },
+            i129 { mag: 100, sign: true },
+            i129 { mag: 150, sign: true },
+            i129 { mag: 100, sign: false },
+            i129 { mag: 100, sign: false },
+        ]
+            .span()
+    );
+
+    assert_eq!(
+        oracle
+            .get_average_price_x128_history(
+                pool_key.token0,
+                pool_key.token1,
+                end_time: end_time,
+                num_intervals: 5,
+                interval_seconds: 20
+            ),
+        array![
+            340350430166388701755467421055154484122,
+            340248340402613897589817814458911858594,
+            340231328419402881519580289477549909252,
+            340316396842083298561446798436459715947,
+            340316396842083298561446798436459715947,
+        ]
+            .span()
+    );
+}
+
+#[test]
+#[fork("mainnet")]
 fn test_tick_to_price_one_half() {
     assert_eq!(
         tick_to_price_x128(i129 { mag: 693148, sign: false }),

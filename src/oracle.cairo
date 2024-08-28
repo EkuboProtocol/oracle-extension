@@ -37,6 +37,17 @@ pub trait IOracle<TContractState> {
         period: u64
     ) -> i129;
 
+    // Returns the a list of ticks representing the TWAP history from `end_time - (num_intervals *
+    // interval_seconds)` to `end_time`
+    fn get_average_tick_history(
+        self: @TContractState,
+        base_token: ContractAddress,
+        quote_token: ContractAddress,
+        end_time: u64,
+        num_intervals: u32,
+        interval_seconds: u32,
+    ) -> Span<i129>;
+
     // Returns the geomean average price of a token as a 128.128 between the given start and end
     // time
     fn get_price_x128_over_period(
@@ -54,6 +65,18 @@ pub trait IOracle<TContractState> {
         quote_token: ContractAddress,
         period: u64
     ) -> u256;
+
+
+    // Returns the a list of prices representing the TWAP history from `end_time - (num_intervals *
+    // interval_seconds)` to `end_time`
+    fn get_average_price_x128_history(
+        self: @TContractState,
+        base_token: ContractAddress,
+        quote_token: ContractAddress,
+        end_time: u64,
+        num_intervals: u32,
+        interval_seconds: u32,
+    ) -> Span<u256>;
 
     // Updates the call points for the latest version of this extension, or simply registers it on
     // the first call
@@ -289,6 +312,35 @@ pub mod Oracle {
             self.get_average_tick_over_period(base_token, quote_token, now - period, now)
         }
 
+        fn get_average_tick_history(
+            self: @ContractState,
+            base_token: ContractAddress,
+            quote_token: ContractAddress,
+            end_time: u64,
+            num_intervals: u32,
+            interval_seconds: u32,
+        ) -> Span<i129> {
+            let mut arr: Array<i129> = array![];
+
+            let mut start_time = (end_time - (num_intervals * interval_seconds).into());
+            while start_time < end_time {
+                arr
+                    .append(
+                        self
+                            .get_average_tick_over_period(
+                                base_token,
+                                quote_token,
+                                start_time: start_time,
+                                end_time: start_time + interval_seconds.into()
+                            )
+                    );
+
+                start_time += interval_seconds.into();
+            };
+
+            arr.span()
+        }
+
         fn get_price_x128_over_period(
             self: @ContractState,
             base_token: ContractAddress,
@@ -309,6 +361,28 @@ pub mod Oracle {
         ) -> u256 {
             let now = get_block_timestamp();
             self.get_price_x128_over_period(base_token, quote_token, now - period, now)
+        }
+
+        fn get_average_price_x128_history(
+            self: @ContractState,
+            base_token: ContractAddress,
+            quote_token: ContractAddress,
+            end_time: u64,
+            num_intervals: u32,
+            interval_seconds: u32,
+        ) -> Span<u256> {
+            let mut ticks = self
+                .get_average_tick_history(
+                    base_token, quote_token, end_time, num_intervals, interval_seconds
+                );
+
+            let mut converted: Array<u256> = array![];
+
+            while let Option::Some(next) = ticks.pop_front() {
+                converted.append(tick_to_price_x128(*next));
+            };
+
+            converted.span()
         }
 
         fn set_call_points(ref self: ContractState) {
