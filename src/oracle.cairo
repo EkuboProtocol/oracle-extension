@@ -85,23 +85,16 @@ pub trait IOracle<TContractState> {
 
 #[starknet::contract]
 pub mod Oracle {
-    use core::integer::{u512_safe_div_rem_by_u256};
     use core::num::traits::{WideMul};
     use core::num::traits::{Zero};
-    use core::option::{OptionTrait};
-    use core::traits::{Into, TryInto};
+    use core::traits::{Into};
     use ekubo::components::owned::{Owned as owned_component};
     use ekubo::components::shared_locker::{check_caller_is_core};
-    use ekubo::components::upgradeable::{
-        Upgradeable as upgradeable_component, IHasInterface, IUpgradeable, IUpgradeableDispatcher,
-        IUpgradeableDispatcherTrait
-    };
+    use ekubo::components::upgradeable::{Upgradeable as upgradeable_component, IHasInterface};
     use ekubo::interfaces::core::{
         ICoreDispatcher, ICoreDispatcherTrait, IExtension, SwapParameters, UpdatePositionParameters
     };
-    use ekubo::interfaces::mathlib::{
-        IMathLibLibraryDispatcher, IMathLibDispatcherTrait, dispatcher as mathlib
-    };
+    use ekubo::interfaces::mathlib::{IMathLibDispatcherTrait, dispatcher as mathlib};
     use ekubo::types::bounds::{Bounds};
     use ekubo::types::call_points::{CallPoints};
     use ekubo::types::delta::{Delta};
@@ -113,7 +106,7 @@ pub mod Oracle {
         StorageMapWriteAccess
     };
 
-    use starknet::{get_block_timestamp, get_caller_address, get_contract_address};
+    use starknet::{get_block_timestamp, get_contract_address};
 
     use super::{IOracle, ContractAddress, snapshot::{Snapshot}};
 

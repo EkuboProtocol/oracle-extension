@@ -1,6 +1,6 @@
 use core::option::{OptionTrait};
 use core::traits::{TryInto, Into};
-use ekubo::types::i129::{i129, i129Trait};
+use ekubo::types::i129::{i129};
 use starknet::storage_access::{StorePacking};
 
 #[derive(Copy, Drop, PartialEq, Serde)]

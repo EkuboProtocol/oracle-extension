@@ -13,10 +13,9 @@ pub(crate) trait IERC20<TContractState> {
 
 #[starknet::contract]
 pub(crate) mod TestToken {
-    use core::num::traits::zero::{Zero};
     use starknet::storage::StorageMapReadAccess;
     use starknet::storage::StorageMapWriteAccess;
-    use starknet::storage::{Map, StoragePointerWriteAccess};
+    use starknet::storage::{Map};
     use starknet::{ContractAddress, get_caller_address};
     use super::{IERC20};
 

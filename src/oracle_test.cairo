@@ -1,32 +1,20 @@
 use core::num::traits::{Zero};
-use core::option::{OptionTrait};
-use core::traits::{TryInto};
 use ekubo::components::owned::{IOwnedDispatcher, IOwnedDispatcherTrait};
-use ekubo::interfaces::core::{
-    ICoreDispatcherTrait, ICoreDispatcher, IExtensionDispatcher, IExtensionDispatcherTrait
-};
-use ekubo::interfaces::mathlib::{
-    IMathLibLibraryDispatcher, IMathLibDispatcherTrait, dispatcher as mathlib
-};
+use ekubo::interfaces::core::{ICoreDispatcherTrait, ICoreDispatcher, IExtensionDispatcher};
+use ekubo::interfaces::mathlib::{IMathLibDispatcherTrait, dispatcher as mathlib};
 use ekubo::interfaces::positions::{IPositionsDispatcher, IPositionsDispatcherTrait};
 use ekubo::interfaces::router::{IRouterDispatcher, IRouterDispatcherTrait, RouteNode, TokenAmount};
 use ekubo::types::bounds::{Bounds};
 use ekubo::types::call_points::{CallPoints};
 use ekubo::types::i129::{i129};
-use ekubo::types::keys::{PoolKey, PositionKey};
+use ekubo::types::keys::{PoolKey};
 use ekubo_oracle_extension::oracle::{
-    IOracleDispatcher, IOracleDispatcherTrait, Oracle,
+    IOracleDispatcher, IOracleDispatcherTrait,
     Oracle::{MAX_TICK_SPACING, quote_amount_from_tick, tick_to_price_x128}
 };
-use ekubo_oracle_extension::test_token::{TestToken, IERC20Dispatcher, IERC20DispatcherTrait};
-use snforge_std::{
-    declare, ContractClassTrait, cheat_caller_address, cheat_block_timestamp, CheatSpan,
-    ContractClass
-};
-use starknet::{
-    get_contract_address, get_block_timestamp, contract_address_const,
-    storage_access::{StorePacking}, syscalls::{deploy_syscall}, ContractAddress
-};
+use ekubo_oracle_extension::test_token::{IERC20Dispatcher, IERC20DispatcherTrait};
+use snforge_std::{declare, ContractClassTrait, cheat_block_timestamp, CheatSpan, ContractClass};
+use starknet::{get_contract_address, get_block_timestamp, contract_address_const, ContractAddress};
 
 fn deploy_token(
     class: ContractClass, recipient: ContractAddress, amount: u256
