@@ -48,6 +48,24 @@ pub trait IOracle<TContractState> {
         interval_seconds: u32,
     ) -> Span<i129>;
 
+    // Returns the realized volatility over the period in ticks, extrapolated to the given number of
+    // seconds.
+    // E.g.: to get the 7 day realized volatility using hourly observations, call with the following
+    //  parameters:
+    //      end_time = now, num_intervals = 168, interval_seconds = 3600, extrapolated_to = 604800
+    // E.g.: to get the annualized realized volatility using half-hourly observations for the last
+    //  day, call with the following parameters:
+    //      end_time = now, num_intervals = 48, interval_seconds = 1800, extrapolated_to = 31557600
+    fn get_realized_volatility_over_period(
+        self: @TContractState,
+        token_a: ContractAddress,
+        token_b: ContractAddress,
+        end_time: u64,
+        num_intervals: u32,
+        interval_seconds: u32,
+        extrapolated_to: u32
+    ) -> u64;
+
     // Returns the geomean average price of a token as a 128.128 between the given start and end
     // time
     fn get_price_x128_over_period(
@@ -85,8 +103,7 @@ pub trait IOracle<TContractState> {
 
 #[starknet::contract]
 pub mod Oracle {
-    use core::num::traits::{WideMul};
-    use core::num::traits::{Zero};
+    use core::num::traits::{Zero, Sqrt, WideMul};
     use core::traits::{Into};
     use ekubo::components::owned::{Owned as owned_component};
     use ekubo::components::shared_locker::{check_caller_is_core};
@@ -332,6 +349,37 @@ pub mod Oracle {
             };
 
             arr.span()
+        }
+
+        fn get_realized_volatility_over_period(
+            self: @ContractState,
+            token_a: ContractAddress,
+            token_b: ContractAddress,
+            end_time: u64,
+            num_intervals: u32,
+            interval_seconds: u32,
+            extrapolated_to: u32
+        ) -> u64 {
+            assert(num_intervals > 1, 'num_intervals must be g.t. 1');
+            let mut history = self
+                .get_average_tick_history(
+                    token_a, token_b, end_time, num_intervals, interval_seconds
+                );
+
+            let mut previous: Option<i129> = Option::None;
+            let mut sum: u128 = 0;
+            while let Option::Some(next) = history.pop_front() {
+                if let Option::Some(prev) = previous {
+                    let delta_mag = (*next - prev).mag;
+                    sum += delta_mag * delta_mag;
+                }
+                previous = Option::Some(*next);
+            };
+
+            let extrapolated = sum * extrapolated_to.into();
+
+            (extrapolated / (Into::<u32, u128>::into(num_intervals - 1) * interval_seconds.into()))
+                .sqrt()
         }
 
         fn get_price_x128_over_period(

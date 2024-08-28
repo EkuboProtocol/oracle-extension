@@ -360,6 +360,19 @@ fn test_get_price_history() {
 
     assert_eq!(
         oracle
+            .get_realized_volatility_over_period(
+                pool_key.token0,
+                pool_key.token1,
+                end_time: end_time,
+                num_intervals: 5,
+                interval_seconds: 20,
+                extrapolated_to: 3600
+            ),
+        100
+    );
+
+    assert_eq!(
+        oracle
             .get_average_price_x128_history(
                 pool_key.token0,
                 pool_key.token1,
@@ -375,6 +388,39 @@ fn test_get_price_history() {
             340316396842083298561446798436459715947,
         ]
             .span()
+    );
+}
+
+
+#[test]
+#[fork("mainnet")]
+fn test_get_realized_volatility_over_period() {
+    let pool_key = setup();
+    let oracle = IOracleDispatcher { contract_address: pool_key.extension };
+
+    let start_time = 100;
+    cheat_block_timestamp(pool_key.extension, start_time, CheatSpan::Indefinite);
+    ekubo_core().initialize_pool(pool_key, i129 { mag: 100, sign: false });
+    move_price_to_tick(pool_key, i129 { mag: 200, sign: false });
+    cheat_block_timestamp(pool_key.extension, start_time + 30, CheatSpan::Indefinite);
+    move_price_to_tick(pool_key, i129 { mag: 400, sign: true });
+    cheat_block_timestamp(pool_key.extension, start_time + 50, CheatSpan::Indefinite);
+    move_price_to_tick(pool_key, i129 { mag: 100, sign: false });
+    cheat_block_timestamp(pool_key.extension, start_time + 80, CheatSpan::Indefinite);
+    let end_time = start_time + 100;
+    cheat_block_timestamp(pool_key.extension, end_time, CheatSpan::Indefinite);
+
+    assert_eq!(
+        oracle
+            .get_realized_volatility_over_period(
+                pool_key.token0,
+                pool_key.token1,
+                end_time: end_time,
+                num_intervals: 5,
+                interval_seconds: 20,
+                extrapolated_to: 3600
+            ),
+        2641
     );
 }
 
