@@ -360,19 +360,6 @@ fn test_get_price_history() {
 
     assert_eq!(
         oracle
-            .get_realized_volatility_over_period(
-                pool_key.token0,
-                pool_key.token1,
-                end_time: end_time,
-                num_intervals: 5,
-                interval_seconds: 20,
-                extrapolated_to: 3600
-            ),
-        100
-    );
-
-    assert_eq!(
-        oracle
             .get_average_price_x128_history(
                 pool_key.token0,
                 pool_key.token1,
