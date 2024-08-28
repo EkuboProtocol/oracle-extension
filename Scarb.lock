@@ -4,7 +4,7 @@ version = 1
 [[package]]
 name = "ekubo"
 version = "0.1.0"
-source = "git+https://github.com/ekuboprotocol/abis#79fc307316ca6b27a34bacc263af639abc80fb47"
+source = "git+https://github.com/ekuboprotocol/abis#0bd97534dfa42271a7667a37b8a19464a7ded716"
 
 [[package]]
 name = "ekubo_oracle_extension"
