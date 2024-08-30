@@ -593,6 +593,7 @@ pub mod Oracle {
                 assert(
                     pool_key.token0 == oracle_token
                         || pool_key.token1 == oracle_token
+                        || params.liquidity_delta.is_zero()
                         || params.liquidity_delta.sign,
                     'Must use oracle token'
                 );
