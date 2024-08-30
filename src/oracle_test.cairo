@@ -13,11 +13,13 @@ use ekubo_oracle_extension::oracle::{
     Oracle::{MAX_TICK_SPACING, quote_amount_from_tick, tick_to_price_x128}
 };
 use ekubo_oracle_extension::test_token::{IERC20Dispatcher, IERC20DispatcherTrait};
-use snforge_std::{declare, ContractClassTrait, cheat_block_timestamp, CheatSpan, ContractClass};
+use snforge_std::{
+    declare, ContractClassTrait, DeclareResultTrait, cheat_block_timestamp, CheatSpan, ContractClass
+};
 use starknet::{get_contract_address, get_block_timestamp, contract_address_const, ContractAddress};
 
 fn deploy_token(
-    class: ContractClass, recipient: ContractAddress, amount: u256
+    class: @ContractClass, recipient: ContractAddress, amount: u256
 ) -> IERC20Dispatcher {
     let (contract_address, _) = class
         .deploy(@array![recipient.into(), amount.low.into(), amount.high.into()])
@@ -31,10 +33,12 @@ fn default_owner() -> ContractAddress {
 }
 
 
-fn deploy_oracle(owner: ContractAddress, core: ICoreDispatcher) -> IExtensionDispatcher {
-    let contract = declare("Oracle").unwrap();
+fn deploy_oracle(
+    owner: ContractAddress, core: ICoreDispatcher, oracle_token: ContractAddress
+) -> IExtensionDispatcher {
+    let contract = declare("Oracle").unwrap().contract_class();
     let (contract_address, _) = contract
-        .deploy(@array![default_owner().into(), core.contract_address.into()])
+        .deploy(@array![default_owner().into(), core.contract_address.into(), oracle_token.into()])
         .expect('Deploy failed');
 
     IExtensionDispatcher { contract_address }
@@ -65,8 +69,8 @@ fn router() -> IRouterDispatcher {
 }
 
 fn setup() -> PoolKey {
-    let oracle = deploy_oracle(default_owner(), ekubo_core());
-    let token_class = declare("TestToken").unwrap();
+    let oracle = deploy_oracle(default_owner(), ekubo_core(), Zero::zero());
+    let token_class = declare("TestToken").unwrap().contract_class();
     let owner = get_contract_address();
     let (tokenA, tokenB) = (
         deploy_token(
