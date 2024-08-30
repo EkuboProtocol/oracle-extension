@@ -14,7 +14,7 @@ use ekubo_oracle_extension::oracle::{
 };
 use ekubo_oracle_extension::test_token::{IERC20Dispatcher, IERC20DispatcherTrait};
 use snforge_std::{
-    declare, ContractClassTrait, DeclareResultTrait, cheat_block_timestamp, CheatSpan, ContractClass
+    declare, DeclareResultTrait, ContractClassTrait, cheat_block_timestamp, CheatSpan, ContractClass
 };
 use starknet::{get_contract_address, get_block_timestamp, contract_address_const, ContractAddress};
 

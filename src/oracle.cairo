@@ -103,7 +103,9 @@ pub trait IOracle<TContractState> {
     // Returns the set oracle token
     fn get_oracle_token(self: @TContractState) -> ContractAddress;
 
-    // Sets the oracle token
+    // Sets the oracle token. If set to a non-zero address, the oracle only allows Oracle pools with
+    // the specified token, and uses that token as the intermediary oracle for all queries If set to
+    // zero, any oracle pool may be created.
     fn set_oracle_token(ref self: TContractState, oracle_token: ContractAddress);
 }
 
