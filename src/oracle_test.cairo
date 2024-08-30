@@ -13,11 +13,14 @@ use ekubo_oracle_extension::oracle::{
     Oracle::{MAX_TICK_SPACING, quote_amount_from_tick, tick_to_price_x128}
 };
 use ekubo_oracle_extension::test_token::{IERC20Dispatcher, IERC20DispatcherTrait};
-use snforge_std::{declare, ContractClassTrait, cheat_block_timestamp, CheatSpan, ContractClass};
+use snforge_std::{
+    declare, DeclareResultTrait, ContractClassTrait, cheat_block_timestamp, CheatSpan,
+    ContractClass, cheat_caller_address
+};
 use starknet::{get_contract_address, get_block_timestamp, contract_address_const, ContractAddress};
 
 fn deploy_token(
-    class: ContractClass, recipient: ContractAddress, amount: u256
+    class: @ContractClass, recipient: ContractAddress, amount: u256
 ) -> IERC20Dispatcher {
     let (contract_address, _) = class
         .deploy(@array![recipient.into(), amount.low.into(), amount.high.into()])
@@ -31,10 +34,12 @@ fn default_owner() -> ContractAddress {
 }
 
 
-fn deploy_oracle(owner: ContractAddress, core: ICoreDispatcher) -> IExtensionDispatcher {
-    let contract = declare("Oracle").unwrap();
+fn deploy_oracle(
+    owner: ContractAddress, core: ICoreDispatcher, oracle_token: ContractAddress
+) -> IExtensionDispatcher {
+    let contract = declare("Oracle").unwrap().contract_class();
     let (contract_address, _) = contract
-        .deploy(@array![default_owner().into(), core.contract_address.into()])
+        .deploy(@array![default_owner().into(), core.contract_address.into(), oracle_token.into()])
         .expect('Deploy failed');
 
     IExtensionDispatcher { contract_address }
@@ -64,11 +69,16 @@ fn router() -> IRouterDispatcher {
     }
 }
 
-fn setup() -> PoolKey {
-    let oracle = deploy_oracle(default_owner(), ekubo_core());
-    let token_class = declare("TestToken").unwrap();
+fn setup() -> (PoolKey, PoolKey) {
+    let oracle = deploy_oracle(default_owner(), ekubo_core(), Zero::zero());
+    let token_class = declare("TestToken").unwrap().contract_class();
     let owner = get_contract_address();
-    let (tokenA, tokenB) = (
+    let (tokenA, tokenB, tokenC) = (
+        deploy_token(
+            token_class,
+            owner,
+            amount: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+        ),
         deploy_token(
             token_class,
             owner,
@@ -80,27 +90,41 @@ fn setup() -> PoolKey {
             amount: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
         )
     );
-    let (token0, token1) = if (tokenA.contract_address < tokenB.contract_address) {
+    let (token0, token1) = if tokenA.contract_address < tokenB.contract_address {
         (tokenA, tokenB)
     } else {
         (tokenB, tokenA)
     };
+    let (token0, token1, token2) = if tokenC.contract_address < token0.contract_address {
+        (tokenC, token0, token1)
+    } else if tokenC.contract_address < token1.contract_address {
+        (token0, tokenC, token1)
+    } else {
+        (token0, token1, tokenC)
+    };
 
-    let pool_key = PoolKey {
+    let pool_key_0 = PoolKey {
         token0: token0.contract_address,
         token1: token1.contract_address,
         fee: 0,
         tick_spacing: 354892,
         extension: oracle.contract_address,
     };
+    let pool_key_1 = PoolKey {
+        token0: token1.contract_address,
+        token1: token2.contract_address,
+        fee: 0,
+        tick_spacing: 354892,
+        extension: oracle.contract_address,
+    };
 
-    pool_key
+    (pool_key_0, pool_key_1)
 }
 
 #[test]
 #[fork("mainnet")]
 fn test_oracle_sets_call_points() {
-    let pool_key = setup();
+    let (pool_key, _) = setup();
     assert_eq!(
         ekubo_core().get_call_points(pool_key.extension),
         CallPoints {
@@ -123,7 +147,7 @@ fn test_oracle_sets_call_points() {
 #[fork("mainnet")]
 #[should_panic(expected: ('Position must be full range',))]
 fn test_position_must_be_full_range() {
-    let pool_key = setup();
+    let (pool_key, _) = setup();
     ekubo_core().initialize_pool(pool_key, i129 { mag: 0, sign: false });
     IERC20Dispatcher { contract_address: pool_key.token0 }
         .transfer(positions().contract_address, 100);
@@ -137,20 +161,13 @@ fn test_position_must_be_full_range() {
 
 #[test]
 #[fork("mainnet")]
-fn test_get_tick_cumulative_increases_over_time() {
-    let pool_key = setup();
+fn test_get_average_tick() {
+    let (pool_key, _) = setup();
     let oracle = IOracleDispatcher { contract_address: pool_key.extension };
 
     ekubo_core().initialize_pool(pool_key, i129 { mag: 693147, sign: false });
 
-    assert_eq!(oracle.get_tick_cumulative(pool_key.token0, pool_key.token1), Zero::zero());
-
     cheat_block_timestamp(pool_key.extension, get_block_timestamp() + 10, CheatSpan::Indefinite);
-
-    assert_eq!(
-        oracle.get_tick_cumulative(pool_key.token0, pool_key.token1),
-        i129 { mag: 6931470, sign: false }
-    );
 
     assert_eq!(
         oracle.get_average_tick_over_last(pool_key.token0, pool_key.token1, period: 10),
@@ -179,29 +196,29 @@ fn test_get_tick_cumulative_increases_over_time() {
 #[test]
 #[fork("mainnet")]
 #[should_panic(expected: ('Time before first snapshot',))]
-fn test_get_tick_cumulative_at_past() {
-    let pool_key = setup();
+fn test_get_average_tick_at_past() {
+    let (pool_key, _) = setup();
     let oracle = IOracleDispatcher { contract_address: pool_key.extension };
 
     let start = get_block_timestamp() + 10;
     cheat_block_timestamp(pool_key.extension, start, CheatSpan::Indefinite);
     ekubo_core().initialize_pool(pool_key, i129 { mag: 693147, sign: false });
 
-    oracle.get_tick_cumulative_at(pool_key.token0, pool_key.token1, start - 1);
+    oracle.get_average_tick_over_last(pool_key.token0, pool_key.token1, start - 1);
 }
 
 #[test]
 #[fork("mainnet")]
 #[should_panic(expected: ('Time in future',))]
 fn test_get_tick_cumulative_at_future() {
-    let pool_key = setup();
+    let (pool_key, _) = setup();
     let oracle = IOracleDispatcher { contract_address: pool_key.extension };
 
     let start = get_block_timestamp() + 10;
     cheat_block_timestamp(pool_key.extension, start, CheatSpan::Indefinite);
     ekubo_core().initialize_pool(pool_key, i129 { mag: 693147, sign: false });
 
-    oracle.get_tick_cumulative_at(pool_key.token0, pool_key.token1, start + 1);
+    oracle.get_average_tick_over_period(pool_key.token0, pool_key.token1, start, start + 1);
 }
 
 // assumes there is 0 liquidity so swaps are free
@@ -228,103 +245,11 @@ fn move_price_to_tick(pool_key: PoolKey, tick: i129) {
     }
 }
 
-#[test]
-#[fork("mainnet")]
-fn test_get_tick_cumulative_changes_with_swaps_up() {
-    let pool_key = setup();
-    let oracle = IOracleDispatcher { contract_address: pool_key.extension };
-
-    ekubo_core().initialize_pool(pool_key, i129 { mag: 693147, sign: false });
-    move_price_to_tick(pool_key, i129 { mag: 693147 * 2, sign: false });
-
-    assert_eq!(oracle.get_tick_cumulative(pool_key.token0, pool_key.token1), Zero::zero());
-
-    cheat_block_timestamp(pool_key.extension, get_block_timestamp() + 10, CheatSpan::Indefinite);
-
-    assert_eq!(
-        oracle.get_tick_cumulative(pool_key.token0, pool_key.token1),
-        i129 { mag: 13862940, sign: false }
-    );
-
-    assert_eq!(
-        oracle.get_average_tick_over_last(pool_key.token0, pool_key.token1, period: 10),
-        i129 { mag: 1386294, sign: false }
-    );
-}
-
-#[test]
-#[fork("mainnet")]
-fn test_get_tick_cumulative_changes_with_swaps_down() {
-    let pool_key = setup();
-    let oracle = IOracleDispatcher { contract_address: pool_key.extension };
-
-    ekubo_core().initialize_pool(pool_key, i129 { mag: 693147, sign: false });
-    move_price_to_tick(pool_key, i129 { mag: 693147 * 2, sign: true });
-
-    assert_eq!(oracle.get_tick_cumulative(pool_key.token0, pool_key.token1), Zero::zero());
-
-    cheat_block_timestamp(pool_key.extension, get_block_timestamp() + 10, CheatSpan::Indefinite);
-
-    assert_eq!(
-        oracle.get_tick_cumulative(pool_key.token0, pool_key.token1),
-        i129 { mag: 13862940, sign: true }
-    );
-
-    assert_eq!(
-        oracle.get_average_tick_over_last(pool_key.token0, pool_key.token1, period: 10),
-        i129 { mag: 1386294, sign: true }
-    );
-}
-
-#[test]
-#[fork("mainnet")]
-fn test_get_tick_cumulative_at_history() {
-    let pool_key = setup();
-    let oracle = IOracleDispatcher { contract_address: pool_key.extension };
-
-    let start_time = get_block_timestamp();
-    ekubo_core().initialize_pool(pool_key, i129 { mag: 100, sign: false });
-    move_price_to_tick(pool_key, i129 { mag: 200, sign: false });
-    cheat_block_timestamp(pool_key.extension, start_time + 3, CheatSpan::Indefinite);
-    move_price_to_tick(pool_key, i129 { mag: 400, sign: true });
-    cheat_block_timestamp(pool_key.extension, start_time + 5, CheatSpan::Indefinite);
-    move_price_to_tick(pool_key, i129 { mag: 100, sign: false });
-    cheat_block_timestamp(pool_key.extension, start_time + 8, CheatSpan::Indefinite);
-
-    assert_eq!(
-        oracle.get_tick_cumulative_at(pool_key.token0, pool_key.token1, start_time), Zero::zero()
-    );
-
-    assert_eq!(
-        oracle.get_tick_cumulative_at(pool_key.token0, pool_key.token1, start_time + 1),
-        i129 { mag: 200, sign: false }
-    );
-
-    assert_eq!(
-        oracle.get_tick_cumulative_at(pool_key.token0, pool_key.token1, start_time + 4),
-        i129 { mag: 200, sign: false }
-    );
-
-    assert_eq!(
-        oracle.get_tick_cumulative_at(pool_key.token0, pool_key.token1, start_time + 5),
-        i129 { mag: 200, sign: true }
-    );
-
-    assert_eq!(
-        oracle.get_tick_cumulative_at(pool_key.token0, pool_key.token1, start_time + 7),
-        Zero::zero()
-    );
-
-    // 2 * 3 + (-4 * 2) + (1 * 3)
-    assert_eq!(
-        oracle.get_tick_cumulative(pool_key.token0, pool_key.token1), i129 { mag: 100, sign: false }
-    );
-}
 
 #[test]
 #[fork("mainnet")]
 fn test_get_price_history() {
-    let pool_key = setup();
+    let (pool_key, _) = setup();
     let oracle = IOracleDispatcher { contract_address: pool_key.extension };
 
     let start_time = 100;
@@ -378,11 +303,71 @@ fn test_get_price_history() {
     );
 }
 
+#[test]
+#[fork("mainnet")]
+fn test_get_price_history_through_oracle_token() {
+    let (pool_key_0, pool_key_1) = setup();
+    let oracle = IOracleDispatcher { contract_address: pool_key_0.extension };
+    cheat_caller_address(oracle.contract_address, default_owner(), CheatSpan::TargetCalls(1));
+    oracle.set_oracle_token(pool_key_0.token1);
+
+    let start_time = 100;
+    cheat_block_timestamp(oracle.contract_address, start_time, CheatSpan::Indefinite);
+    ekubo_core().initialize_pool(pool_key_0, i129 { mag: 100, sign: false });
+    ekubo_core().initialize_pool(pool_key_1, i129 { mag: 100, sign: false });
+    move_price_to_tick(pool_key_0, i129 { mag: 200, sign: false });
+    move_price_to_tick(pool_key_1, i129 { mag: 200, sign: false });
+    cheat_block_timestamp(oracle.contract_address, start_time + 30, CheatSpan::Indefinite);
+    move_price_to_tick(pool_key_0, i129 { mag: 400, sign: true });
+    move_price_to_tick(pool_key_1, i129 { mag: 400, sign: true });
+    cheat_block_timestamp(oracle.contract_address, start_time + 50, CheatSpan::Indefinite);
+    move_price_to_tick(pool_key_0, i129 { mag: 100, sign: false });
+    move_price_to_tick(pool_key_1, i129 { mag: 100, sign: false });
+    cheat_block_timestamp(oracle.contract_address, start_time + 80, CheatSpan::Indefinite);
+    let end_time = start_time + 100;
+    cheat_block_timestamp(oracle.contract_address, end_time, CheatSpan::Indefinite);
+
+    assert_eq!(
+        oracle
+            .get_average_tick_history(
+                pool_key_1.token1, // token2
+                pool_key_0.token0, // token0
+                end_time: end_time,
+                num_intervals: 5,
+                interval_seconds: 20
+            ),
+        [
+            i129 { mag: 400, sign: true },
+            i129 { mag: 200, sign: false },
+            i129 { mag: 300, sign: false },
+            i129 { mag: 200, sign: true },
+            i129 { mag: 200, sign: true }
+        ].span()
+    );
+    assert_eq!(
+        oracle
+            .get_average_tick_history(
+                pool_key_0.token0, // token0
+                pool_key_1.token1, // token2
+                end_time: end_time,
+                num_intervals: 5,
+                interval_seconds: 20
+            ),
+        [
+            i129 { mag: 400, sign: false },
+            i129 { mag: 200, sign: true },
+            i129 { mag: 300, sign: true },
+            i129 { mag: 200, sign: false },
+            i129 { mag: 200, sign: false }
+        ].span()
+    );
+}
+
 
 #[test]
 #[fork("mainnet")]
 fn test_get_realized_volatility_over_period() {
-    let pool_key = setup();
+    let (pool_key, _) = setup();
     let oracle = IOracleDispatcher { contract_address: pool_key.extension };
 
     let start_time = 100;
