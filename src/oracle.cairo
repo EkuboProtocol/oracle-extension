@@ -8,18 +8,6 @@ use starknet::{ContractAddress};
 
 #[starknet::interface]
 pub trait IOracle<TContractState> {
-    // Returns the cumulative tick value for a given pool, useful for computing a geomean oracle
-    // over a period of time.
-    fn get_tick_cumulative(
-        self: @TContractState, token0: ContractAddress, token1: ContractAddress
-    ) -> i129;
-
-    // Returns the cumulative tick at the given time. The time must be in between the initialization
-    // time of the pool and the current block timestamp.
-    fn get_tick_cumulative_at(
-        self: @TContractState, token0: ContractAddress, token1: ContractAddress, time: u64
-    ) -> i129;
-
     // Returns the time weighted average tick between the given start and end time
     fn get_average_tick_over_period(
         self: @TContractState,
@@ -244,16 +232,18 @@ pub mod Oracle {
             check_caller_is_core(core);
             core
         }
-    }
 
-    #[abi(embed_v0)]
-    impl OracleImpl of IOracle<ContractState> {
+
+        // Returns the cumulative tick value for a given pool, useful for computing a geomean oracle
+        // over a period of time.
         fn get_tick_cumulative(
             self: @ContractState, token0: ContractAddress, token1: ContractAddress
         ) -> i129 {
             self.get_tick_cumulative_at(token0, token1, get_block_timestamp())
         }
 
+        // Returns the cumulative tick at the given time. The time must be in between the
+        // initialization time of the pool and the current block timestamp.
         fn get_tick_cumulative_at(
             self: @ContractState, token0: ContractAddress, token1: ContractAddress, time: u64
         ) -> i129 {
@@ -307,7 +297,10 @@ pub mod Oracle {
                     + tick * i129 { mag: (time - snapshot.block_timestamp).into(), sign: false }
             }
         }
+    }
 
+    #[abi(embed_v0)]
+    impl OracleImpl of IOracle<ContractState> {
         fn get_average_tick_over_period(
             self: @ContractState,
             base_token: ContractAddress,
