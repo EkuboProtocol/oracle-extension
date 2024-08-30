@@ -273,14 +273,13 @@ fn test_get_price_history() {
                 num_intervals: 5,
                 interval_seconds: 20
             ),
-        array![
+        [
             i129 { mag: 200, sign: false },
             i129 { mag: 100, sign: true },
             i129 { mag: 150, sign: true },
             i129 { mag: 100, sign: false },
             i129 { mag: 100, sign: false },
-        ]
-            .span()
+        ].span()
     );
 
     assert_eq!(
@@ -292,14 +291,13 @@ fn test_get_price_history() {
                 num_intervals: 5,
                 interval_seconds: 20
             ),
-        array![
+        [
             340350430166388701755467421055154484122,
             340248340402613897589817814458911858594,
             340231328419402881519580289477549909252,
             340316396842083298561446798436459715947,
             340316396842083298561446798436459715947,
-        ]
-            .span()
+        ].span()
     );
 }
 
@@ -314,18 +312,54 @@ fn test_get_price_history_through_oracle_token() {
     let start_time = 100;
     cheat_block_timestamp(oracle.contract_address, start_time, CheatSpan::Indefinite);
     ekubo_core().initialize_pool(pool_key_0, i129 { mag: 100, sign: false });
-    ekubo_core().initialize_pool(pool_key_1, i129 { mag: 100, sign: false });
+    ekubo_core().initialize_pool(pool_key_1, i129 { mag: 75, sign: false });
     move_price_to_tick(pool_key_0, i129 { mag: 200, sign: false });
-    move_price_to_tick(pool_key_1, i129 { mag: 200, sign: false });
+    move_price_to_tick(pool_key_1, i129 { mag: 600, sign: false });
     cheat_block_timestamp(oracle.contract_address, start_time + 30, CheatSpan::Indefinite);
     move_price_to_tick(pool_key_0, i129 { mag: 400, sign: true });
-    move_price_to_tick(pool_key_1, i129 { mag: 400, sign: true });
+    move_price_to_tick(pool_key_1, i129 { mag: 300, sign: false });
     cheat_block_timestamp(oracle.contract_address, start_time + 50, CheatSpan::Indefinite);
     move_price_to_tick(pool_key_0, i129 { mag: 100, sign: false });
-    move_price_to_tick(pool_key_1, i129 { mag: 100, sign: false });
+    move_price_to_tick(pool_key_1, i129 { mag: 25, sign: true });
     cheat_block_timestamp(oracle.contract_address, start_time + 80, CheatSpan::Indefinite);
     let end_time = start_time + 100;
     cheat_block_timestamp(oracle.contract_address, end_time, CheatSpan::Indefinite);
+
+    assert_eq!(
+        oracle
+            .get_average_tick_history(
+                pool_key_0.token0, // token0
+                pool_key_0.token1, // token1
+                end_time: end_time,
+                num_intervals: 5,
+                interval_seconds: 20
+            ),
+        [
+            i129 { mag: 200, sign: false },
+            i129 { mag: 100, sign: true },
+            i129 { mag: 150, sign: true },
+            i129 { mag: 100, sign: false },
+            i129 { mag: 100, sign: false }
+        ].span()
+    );
+
+    assert_eq!(
+        oracle
+            .get_average_tick_history(
+                pool_key_1.token0, // token1
+                pool_key_1.token1, // token2
+                end_time: end_time,
+                num_intervals: 5,
+                interval_seconds: 20
+            ),
+        [
+            i129 { mag: 600, sign: false },
+            i129 { mag: 450, sign: false },
+            i129 { mag: 137, sign: false },
+            i129 { mag: 25, sign: true },
+            i129 { mag: 25, sign: true }
+        ].span()
+    );
 
     assert_eq!(
         oracle
@@ -337,11 +371,11 @@ fn test_get_price_history_through_oracle_token() {
                 interval_seconds: 20
             ),
         [
-            i129 { mag: 400, sign: true },
-            i129 { mag: 200, sign: false },
-            i129 { mag: 300, sign: false },
-            i129 { mag: 200, sign: true },
-            i129 { mag: 200, sign: true }
+            i129 { mag: 800, sign: true },
+            i129 { mag: 350, sign: true },
+            i129 { mag: 13, sign: false },
+            i129 { mag: 75, sign: true },
+            i129 { mag: 75, sign: true }
         ].span()
     );
     assert_eq!(
@@ -354,11 +388,11 @@ fn test_get_price_history_through_oracle_token() {
                 interval_seconds: 20
             ),
         [
-            i129 { mag: 400, sign: false },
-            i129 { mag: 200, sign: true },
-            i129 { mag: 300, sign: true },
-            i129 { mag: 200, sign: false },
-            i129 { mag: 200, sign: false }
+            i129 { mag: 800, sign: false },
+            i129 { mag: 350, sign: false },
+            i129 { mag: 13, sign: true },
+            i129 { mag: 75, sign: false },
+            i129 { mag: 75, sign: false }
         ].span()
     );
 }
