@@ -585,6 +585,18 @@ pub mod Oracle {
                     },
                 'Position must be full range'
             );
+
+            let oracle_token = self.oracle_token.read();
+
+            if oracle_token.is_non_zero() {
+                // must be using the oracle token in the pool, or withdrawing liquidity
+                assert(
+                    pool_key.token0 == oracle_token
+                        || pool_key.token1 == oracle_token
+                        || params.liquidity_delta.sign,
+                    'Must use oracle token'
+                );
+            }
         }
 
         fn after_update_position(
