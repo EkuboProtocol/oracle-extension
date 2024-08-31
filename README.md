@@ -2,7 +2,7 @@
 
 This repository implements a permissionless and manipulation resistant price Oracle for any pair that can be traded on Ekubo via [Ekubo Extensions](https://docs.ekubo.org/integration-guides/extensions).
 
-The extension enables developers to create one Oracle pool per pair. This pool must have the parameters `fee = 0` and `tick_spacing = MAX_TICK_SPACING`. In addition, only full range positions may be created on this pool. These are the lowest cost parameters that make the oracle both maximally precise and maximally expensive to manipulate. This also prevents fragmentation of liquidity used for the Oracle. As with any extension, the pool key must also refer to the address of the deployed extension contract.
+The extension enables developers to create one Oracle pool per pair. This pool must have the parameters `fee = 0` and `tick_spacing = MAX_TICK_SPACING`. If the `oracle_token` is defined, all Oracle pools must be paired with that token, and the price fetching methods use that token as an intermediate for computing all prices. Only full range positions may be created on Oracle pools, to support all possible prices. These parameters maximize oracle precision and cost to manipulate. It also aims to prevent fragmentation of liquidity, which is a big detriment to on-chain Oracle UX. As with any extension, the pool key must also refer to the address of the deployed extension contract.
 
 ## How it works
 
