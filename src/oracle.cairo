@@ -17,6 +17,14 @@ pub trait IOracle<TContractState> {
         end_time: u64
     ) -> i129;
 
+    // Returns the time weighted average tick between the given start and end time
+    fn get_average_tick_over_periods(
+        self: @TContractState,
+        base_token: ContractAddress,
+        quote_token: ContractAddress,
+        start_and_end_times: Span<(u64, u64)>
+    ) -> Span<i129>;
+
     // Returns the time weighted average tick over the last `period` seconds
     fn get_average_tick_over_last(
         self: @TContractState,
@@ -113,10 +121,9 @@ pub mod Oracle {
     use ekubo::types::delta::{Delta};
     use ekubo::types::i129::{i129};
     use ekubo::types::keys::{PoolKey};
-    use starknet::storage::StoragePathEntry;
     use starknet::storage::{
-        Map, StoragePointerWriteAccess, StorageMapReadAccess, StoragePointerReadAccess,
-        StorageMapWriteAccess
+        Map, StoragePointerWriteAccess, StorageMapReadAccess, StoragePointerReadAccess, StoragePath,
+        StoragePathEntry, StorageMapWriteAccess
     };
 
     use starknet::{get_block_timestamp, get_contract_address};
@@ -233,26 +240,15 @@ pub mod Oracle {
             core
         }
 
-
-        // Returns the cumulative tick value for a given pool, useful for computing a geomean oracle
-        // over a period of time.
-        fn get_tick_cumulative(
-            self: @ContractState, token0: ContractAddress, token1: ContractAddress
-        ) -> i129 {
-            self.get_tick_cumulative_at(token0, token1, get_block_timestamp())
-        }
-
         // Returns the cumulative tick at the given time. The time must be in between the
         // initialization time of the pool and the current block timestamp.
         fn get_tick_cumulative_at(
-            self: @ContractState, token0: ContractAddress, token1: ContractAddress, time: u64
+            self: @ContractState,
+            entry: StoragePath<PoolState>,
+            count: u64,
+            current_tick: i129,
+            time: u64
         ) -> i129 {
-            assert(time <= get_block_timestamp(), 'Time in future');
-            let key = (token0, token1);
-            let entry = self.pool_state.entry(key);
-            let count = entry.count.read();
-            assert(count.is_non_zero(), 'Pool not initialized');
-
             let mut l = 0_u64;
             let mut r = count;
             let (index, snapshot) = loop {
@@ -283,8 +279,7 @@ pub mod Oracle {
                 snapshot.tick_cumulative
             } else {
                 let tick = if index == count - 1 {
-                    assert(time <= get_block_timestamp(), 'Time in future');
-                    self.core.read().get_pool_price(key.to_pool_key()).tick
+                    current_tick
                 } else {
                     let next = entry.snapshots.read(index + 1);
                     (next.tick_cumulative - snapshot.tick_cumulative)
@@ -308,7 +303,21 @@ pub mod Oracle {
             start_time: u64,
             end_time: u64
         ) -> i129 {
-            assert(end_time > start_time, 'Period must be > 0 seconds long');
+            let times: Span<(u64, u64)> = array![(start_time, end_time)].span();
+            let mut result: Span<i129> = self
+                .get_average_tick_over_periods(base_token, quote_token, times);
+            *result.pop_front().unwrap()
+        }
+
+        fn get_average_tick_over_periods(
+            self: @ContractState,
+            base_token: ContractAddress,
+            quote_token: ContractAddress,
+            mut start_and_end_times: Span<(u64, u64)>
+        ) -> Span<i129> {
+            let current_time = get_block_timestamp();
+
+            let mut results: Array<i129> = array![];
 
             let oracle_token = self.oracle_token.read();
 
@@ -318,25 +327,46 @@ pub mod Oracle {
                 } else {
                     (quote_token, base_token, true)
                 };
-                let start_cumulative = self.get_tick_cumulative_at(token0, token1, start_time);
-                let end_cumulative = self.get_tick_cumulative_at(token0, token1, end_time);
-                let difference = end_cumulative - start_cumulative;
-                difference / i129 { mag: (end_time - start_time).into(), sign: flipped }
+
+                let key = (token0, token1);
+                let entry = self.pool_state.entry(key);
+
+                let count = entry.count.read();
+                assert(count.is_non_zero(), 'Pool not initialized');
+
+                let current_tick = self.core.read().get_pool_price(key.to_pool_key()).tick;
+
+                while let Option::Some((start_time, end_time)) = start_and_end_times.pop_front() {
+                    assert(end_time > start_time, 'Period must be > 0 seconds long');
+                    assert(*end_time <= current_time, 'Time in future');
+                    let start_cumulative = self
+                        .get_tick_cumulative_at(entry, count, current_tick, *start_time);
+                    let end_cumulative = self
+                        .get_tick_cumulative_at(entry, count, current_tick, *end_time);
+                    let difference = end_cumulative - start_cumulative;
+                    results
+                        .append(
+                            difference
+                                / i129 { mag: (*end_time - *start_time).into(), sign: flipped }
+                        );
+                };
             } else {
                 // use the oracle token to get the quote price and base price, then combine them
 
                 // price is quote_token / oracle_token
-                let t_quote = self
-                    .get_average_tick_over_period(oracle_token, quote_token, start_time, end_time);
+                let mut t_quotes = self
+                    .get_average_tick_over_periods(oracle_token, quote_token, start_and_end_times);
 
                 // price is oracle_token / base_token
-                let t_base = self
-                    .get_average_tick_over_period(base_token, oracle_token, start_time, end_time);
+                let mut t_bases = self
+                    .get_average_tick_over_periods(base_token, oracle_token, start_and_end_times);
 
-                // multiplying prices from t_quote by t_base gives quote_token / base_token
-                // log(P * U) = log(P) + log(U)
-                t_quote + t_base
-            }
+                while let Option::Some(t_quote) = t_quotes.pop_front() {
+                    results.append(*t_quote + *t_bases.pop_front().unwrap());
+                };
+            };
+
+            results.span()
         }
 
         fn get_average_tick_over_last(
@@ -357,25 +387,16 @@ pub mod Oracle {
             num_intervals: u32,
             interval_seconds: u32,
         ) -> Span<i129> {
-            let mut arr: Array<i129> = array![];
+            let mut periods: Array<(u64, u64)> = array![];
 
             let mut start_time = (end_time - (num_intervals * interval_seconds).into());
             while start_time < end_time {
-                arr
-                    .append(
-                        self
-                            .get_average_tick_over_period(
-                                base_token,
-                                quote_token,
-                                start_time: start_time,
-                                end_time: start_time + interval_seconds.into()
-                            )
-                    );
+                periods.append((start_time, start_time + interval_seconds.into()));
 
                 start_time += interval_seconds.into();
             };
 
-            arr.span()
+            self.get_average_tick_over_periods(base_token, quote_token, periods.span())
         }
 
         fn get_realized_volatility_over_period(
