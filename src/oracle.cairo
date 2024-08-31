@@ -113,10 +113,9 @@ pub mod Oracle {
     use ekubo::types::delta::{Delta};
     use ekubo::types::i129::{i129};
     use ekubo::types::keys::{PoolKey};
-    use starknet::storage::StoragePathEntry;
     use starknet::storage::{
-        Map, StoragePointerWriteAccess, StorageMapReadAccess, StoragePointerReadAccess,
-        StorageMapWriteAccess
+        Map, StoragePointerWriteAccess, StorageMapReadAccess, StoragePointerReadAccess, StoragePath,
+        StoragePathEntry, StorageMapWriteAccess
     };
 
     use starknet::{get_block_timestamp, get_contract_address};
@@ -233,23 +232,11 @@ pub mod Oracle {
             core
         }
 
-
-        // Returns the cumulative tick value for a given pool, useful for computing a geomean oracle
-        // over a period of time.
-        fn get_tick_cumulative(
-            self: @ContractState, token0: ContractAddress, token1: ContractAddress
-        ) -> i129 {
-            self.get_tick_cumulative_at(token0, token1, get_block_timestamp())
-        }
-
         // Returns the cumulative tick at the given time. The time must be in between the
         // initialization time of the pool and the current block timestamp.
         fn get_tick_cumulative_at(
-            self: @ContractState, token0: ContractAddress, token1: ContractAddress, time: u64
+            self: @ContractState, entry: StoragePath<PoolState>, current_tick: i129, time: u64
         ) -> i129 {
-            assert(time <= get_block_timestamp(), 'Time in future');
-            let key = (token0, token1);
-            let entry = self.pool_state.entry(key);
             let count = entry.count.read();
             assert(count.is_non_zero(), 'Pool not initialized');
 
@@ -283,8 +270,7 @@ pub mod Oracle {
                 snapshot.tick_cumulative
             } else {
                 let tick = if index == count - 1 {
-                    assert(time <= get_block_timestamp(), 'Time in future');
-                    self.core.read().get_pool_price(key.to_pool_key()).tick
+                    current_tick
                 } else {
                     let next = entry.snapshots.read(index + 1);
                     (next.tick_cumulative - snapshot.tick_cumulative)
@@ -309,6 +295,7 @@ pub mod Oracle {
             end_time: u64
         ) -> i129 {
             assert(end_time > start_time, 'Period must be > 0 seconds long');
+            assert(end_time <= get_block_timestamp(), 'Time in future');
 
             let oracle_token = self.oracle_token.read();
 
@@ -318,8 +305,12 @@ pub mod Oracle {
                 } else {
                     (quote_token, base_token, true)
                 };
-                let start_cumulative = self.get_tick_cumulative_at(token0, token1, start_time);
-                let end_cumulative = self.get_tick_cumulative_at(token0, token1, end_time);
+
+                let key = (token0, token1);
+                let entry = self.pool_state.entry(key);
+                let current_tick = self.core.read().get_pool_price(key.to_pool_key()).tick;
+                let start_cumulative = self.get_tick_cumulative_at(entry, current_tick, start_time);
+                let end_cumulative = self.get_tick_cumulative_at(entry, current_tick, end_time);
                 let difference = end_cumulative - start_cumulative;
                 difference / i129 { mag: (end_time - start_time).into(), sign: flipped }
             } else {
