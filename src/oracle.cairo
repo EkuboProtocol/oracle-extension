@@ -243,11 +243,12 @@ pub mod Oracle {
         // Returns the cumulative tick at the given time. The time must be in between the
         // initialization time of the pool and the current block timestamp.
         fn get_tick_cumulative_at(
-            self: @ContractState, entry: StoragePath<PoolState>, current_tick: i129, time: u64
+            self: @ContractState,
+            entry: StoragePath<PoolState>,
+            count: u64,
+            current_tick: i129,
+            time: u64
         ) -> i129 {
-            let count = entry.count.read();
-            assert(count.is_non_zero(), 'Pool not initialized');
-
             let mut l = 0_u64;
             let mut r = count;
             let (index, snapshot) = loop {
@@ -329,15 +330,19 @@ pub mod Oracle {
 
                 let key = (token0, token1);
                 let entry = self.pool_state.entry(key);
+
+                let count = entry.count.read();
+                assert(count.is_non_zero(), 'Pool not initialized');
+
                 let current_tick = self.core.read().get_pool_price(key.to_pool_key()).tick;
 
                 while let Option::Some((start_time, end_time)) = start_and_end_times.pop_front() {
                     assert(end_time > start_time, 'Period must be > 0 seconds long');
                     assert(*end_time <= current_time, 'Time in future');
                     let start_cumulative = self
-                        .get_tick_cumulative_at(entry, current_tick, *start_time);
+                        .get_tick_cumulative_at(entry, count, current_tick, *start_time);
                     let end_cumulative = self
-                        .get_tick_cumulative_at(entry, current_tick, *end_time);
+                        .get_tick_cumulative_at(entry, count, current_tick, *end_time);
                     let difference = end_cumulative - start_cumulative;
                     results
                         .append(
