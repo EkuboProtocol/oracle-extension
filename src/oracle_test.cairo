@@ -14,8 +14,7 @@ use ekubo_oracle_extension::oracle::{
 };
 use ekubo_oracle_extension::test_token::{IERC20Dispatcher, IERC20DispatcherTrait};
 use snforge_std::{
-    declare, DeclareResultTrait, ContractClassTrait, cheat_block_timestamp, CheatSpan,
-    ContractClass, cheat_caller_address
+    declare, DeclareResultTrait, ContractClassTrait, cheat_block_timestamp, CheatSpan, ContractClass
 };
 use starknet::{get_contract_address, get_block_timestamp, contract_address_const, ContractAddress};
 
@@ -70,7 +69,6 @@ fn router() -> IRouterDispatcher {
 }
 
 fn setup() -> (PoolKey, PoolKey) {
-    let oracle = deploy_oracle(default_owner(), ekubo_core(), Zero::zero());
     let token_class = declare("TestToken").unwrap().contract_class();
     let owner = get_contract_address();
     let (tokenA, tokenB, tokenC) = (
@@ -103,6 +101,7 @@ fn setup() -> (PoolKey, PoolKey) {
         (token0, token1, tokenC)
     };
 
+    let oracle = deploy_oracle(default_owner(), ekubo_core(), token1.contract_address);
     let pool_key_0 = PoolKey {
         token0: token0.contract_address,
         token1: token1.contract_address,
@@ -306,8 +305,6 @@ fn test_get_price_history() {
 fn test_get_price_history_through_oracle_token() {
     let (pool_key_0, pool_key_1) = setup();
     let oracle = IOracleDispatcher { contract_address: pool_key_0.extension };
-    cheat_caller_address(oracle.contract_address, default_owner(), CheatSpan::TargetCalls(1));
-    oracle.set_oracle_token(pool_key_0.token1);
 
     let start_time = 100;
     cheat_block_timestamp(oracle.contract_address, start_time, CheatSpan::Indefinite);

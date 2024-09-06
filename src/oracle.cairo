@@ -98,11 +98,6 @@ pub trait IOracle<TContractState> {
 
     // Returns the set oracle token
     fn get_oracle_token(self: @TContractState) -> ContractAddress;
-
-    // Sets the oracle token. If set to a non-zero address, the oracle only allows Oracle pools with
-    // the specified token, and uses that token as the intermediary oracle for all queries If set to
-    // zero, any oracle pool may be created.
-    fn set_oracle_token(ref self: TContractState, oracle_token: ContractAddress);
 }
 
 #[starknet::contract]
@@ -321,7 +316,7 @@ pub mod Oracle {
 
             let oracle_token = self.oracle_token.read();
 
-            if oracle_token.is_zero() || base_token == oracle_token || quote_token == oracle_token {
+            if base_token == oracle_token || quote_token == oracle_token {
                 let (token0, token1, flipped) = if base_token < quote_token {
                     (base_token, quote_token, false)
                 } else {
@@ -498,10 +493,6 @@ pub mod Oracle {
         fn get_oracle_token(self: @ContractState) -> ContractAddress {
             self.oracle_token.read()
         }
-
-        fn set_oracle_token(ref self: ContractState, oracle_token: ContractAddress) {
-            self.oracle_token.write(oracle_token);
-        }
     }
 
     pub(crate) const MAX_TICK_SPACING: u128 = 354892;
@@ -514,12 +505,10 @@ pub mod Oracle {
             self.check_caller_is_core();
 
             let oracle_token = self.oracle_token.read();
-            if oracle_token.is_non_zero() {
-                assert(
-                    pool_key.token0 == oracle_token || pool_key.token1 == oracle_token,
-                    'Must use oracle token'
-                );
-            }
+            assert(
+                pool_key.token0 == oracle_token || pool_key.token1 == oracle_token,
+                'Must use oracle token'
+            );
 
             let key = pool_key.to_pair_key();
 
@@ -609,16 +598,14 @@ pub mod Oracle {
 
             let oracle_token = self.oracle_token.read();
 
-            if oracle_token.is_non_zero() {
-                // must be using the oracle token in the pool, or withdrawing liquidity
-                assert(
-                    pool_key.token0 == oracle_token
-                        || pool_key.token1 == oracle_token
-                        || params.liquidity_delta.is_zero()
-                        || params.liquidity_delta.sign,
-                    'Must use oracle token'
-                );
-            }
+            // must be using the oracle token in the pool, or withdrawing liquidity
+            assert(
+                pool_key.token0 == oracle_token
+                    || pool_key.token1 == oracle_token
+                    || params.liquidity_delta.is_zero()
+                    || params.liquidity_delta.sign,
+                'Must use oracle token'
+            );
         }
 
         fn after_update_position(
