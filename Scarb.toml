@@ -25,6 +25,11 @@ name = "mainnet"
 url = "https://free-rpc.nethermind.io/mainnet-juno"
 block_id.number = "677957"
 
+[[tool.snforge.fork]]
+name = "mainnet_live_oracle"
+url = "https://starknet-mainnet.g.alchemy.com/starknet/version/rpc/v0_7/NiEYg24-vYIPZyy9tapT_cTsT8iGTkx-"
+block_id.number = "716425"
+
 [dev-dependencies]
 snforge_std = { git = "https://github.com/foundry-rs/starknet-foundry.git", tag = "v0.30.0" }
 assert_macros = "2.8.2"
