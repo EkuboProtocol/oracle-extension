@@ -8,6 +8,12 @@ use starknet::{ContractAddress};
 
 #[starknet::interface]
 pub trait IOracle<TContractState> {
+    // Returns the timestamp of the earliest observation for a given pair, or Option::None if the
+    // pair has no observations
+    fn get_earliest_observation_time(
+        self: @TContractState, token_a: ContractAddress, token_b: ContractAddress
+    ) -> Option<u64>;
+
     // Returns the time weighted average tick between the given start and end time
     fn get_average_tick_over_period(
         self: @TContractState,
@@ -102,6 +108,7 @@ pub trait IOracle<TContractState> {
 
 #[starknet::contract]
 pub mod Oracle {
+    use core::cmp::{max};
     use core::num::traits::{Zero, Sqrt, WideMul};
     use core::traits::{Into};
     use ekubo::components::owned::{Owned as owned_component};
@@ -291,6 +298,40 @@ pub mod Oracle {
 
     #[abi(embed_v0)]
     impl OracleImpl of IOracle<ContractState> {
+        fn get_earliest_observation_time(
+            self: @ContractState, token_a: ContractAddress, token_b: ContractAddress
+        ) -> Option<u64> {
+            let oracle_token = self.oracle_token.read();
+
+            if token_a == oracle_token || token_b == oracle_token {
+                let (token0, token1) = if token_a < token_b {
+                    (token_a, token_b)
+                } else {
+                    (token_b, token_a)
+                };
+                let entry = self.pool_state.entry((token0, token1));
+                let count = entry.count.read();
+                if count.is_zero() {
+                    Option::None
+                } else {
+                    let first = entry.snapshots.entry(0).read();
+                    Option::Some(first.block_timestamp)
+                }
+            } else {
+                if let Option::Some(time_a) = self
+                    .get_earliest_observation_time(oracle_token, token_a) {
+                    if let Option::Some(time_b) = self
+                        .get_earliest_observation_time(oracle_token, token_b) {
+                        Option::Some(max(time_a, time_b))
+                    } else {
+                        Option::None
+                    }
+                } else {
+                    Option::None
+                }
+            }
+        }
+
         fn get_average_tick_over_period(
             self: @ContractState,
             base_token: ContractAddress,

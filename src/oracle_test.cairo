@@ -220,6 +220,35 @@ fn test_get_tick_cumulative_at_future() {
     oracle.get_average_tick_over_period(pool_key.token0, pool_key.token1, start, start + 1);
 }
 
+#[test]
+#[fork("mainnet")]
+fn test_get_earliest_observation_time() {
+    let (pool_key_0, pool_key_1) = setup();
+    let oracle = IOracleDispatcher { contract_address: pool_key_0.extension };
+
+    let start = get_block_timestamp() + 10;
+    cheat_block_timestamp(oracle.contract_address, start, CheatSpan::Indefinite);
+    ekubo_core().initialize_pool(pool_key_0, Zero::zero());
+    cheat_block_timestamp(oracle.contract_address, start + 15, CheatSpan::Indefinite);
+    ekubo_core().initialize_pool(pool_key_1, Zero::zero());
+
+    assert_eq!(
+        oracle.get_earliest_observation_time(pool_key_0.token0, pool_key_0.token1).unwrap(), start
+    );
+    assert_eq!(
+        oracle.get_earliest_observation_time(pool_key_1.token0, pool_key_1.token1).unwrap(),
+        start + 15
+    );
+    assert_eq!(
+        oracle.get_earliest_observation_time(pool_key_0.token0, pool_key_0.token1).unwrap(), start
+    );
+    // token0, token2
+    assert_eq!(
+        oracle.get_earliest_observation_time(pool_key_0.token0, pool_key_1.token1).unwrap(),
+        start + 15
+    );
+}
+
 // assumes there is 0 liquidity so swaps are free
 fn move_price_to_tick(pool_key: PoolKey, tick: i129) {
     let tick_current = ekubo_core().get_pool_price(pool_key).tick;
