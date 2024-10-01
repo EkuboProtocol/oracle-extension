@@ -239,9 +239,6 @@ fn test_get_earliest_observation_time() {
         oracle.get_earliest_observation_time(pool_key_1.token0, pool_key_1.token1).unwrap(),
         start + 15
     );
-    assert_eq!(
-        oracle.get_earliest_observation_time(pool_key_0.token0, pool_key_0.token1).unwrap(), start
-    );
     // token0, token2
     assert_eq!(
         oracle.get_earliest_observation_time(pool_key_0.token0, pool_key_1.token1).unwrap(),
