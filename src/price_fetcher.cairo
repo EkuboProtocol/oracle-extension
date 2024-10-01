@@ -23,7 +23,7 @@ pub trait IPriceFetcher<TContractState> {
     // Returns the prices in terms of the oracle token
     fn get_prices_in_oracle_tokens(
         self: @TContractState, base_tokens: Span<ContractAddress>, period: u64, min_token: u128
-    ) -> Span<PriceResult>;
+    ) -> (ContractAddress, Span<PriceResult>);
 }
 
 #[starknet::contract]
@@ -128,8 +128,9 @@ mod PriceFetcher {
 
         fn get_prices_in_oracle_tokens(
             self: @ContractState, base_tokens: Span<ContractAddress>, period: u64, min_token: u128
-        ) -> Span<PriceResult> {
-            self.get_prices(self.oracle.read().get_oracle_token(), base_tokens, period, min_token)
+        ) -> (ContractAddress, Span<PriceResult>) {
+            let oracle_token = self.oracle.read().get_oracle_token();
+            (oracle_token, self.get_prices(oracle_token, base_tokens, period, min_token))
         }
     }
 }
