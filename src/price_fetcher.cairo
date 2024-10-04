@@ -1,3 +1,4 @@
+use ekubo::types::i129::{i129};
 use starknet::{ContractAddress};
 
 #[derive(Copy, Drop, PartialEq, Serde, Debug)]
@@ -59,17 +60,29 @@ pub trait IPriceFetcher<TContractState> {
 
 #[starknet::contract]
 mod PriceFetcher {
-    use core::cmp::{max};
+    use core::cmp::{min, max};
     use core::num::traits::{Zero};
     use ekubo::interfaces::core::{ICoreDispatcher, ICoreDispatcherTrait};
     use ekubo::interfaces::mathlib::{IMathLibDispatcherTrait, dispatcher as mathlib};
     use ekubo::types::keys::{PoolKey};
     use ekubo_oracle_extension::oracle::{
-        IOracleDispatcher, IOracleDispatcherTrait, Oracle::{MAX_TICK_SPACING}
+        IOracleDispatcher, IOracleDispatcherTrait, Oracle::{tick_to_price_x128, MAX_TICK_SPACING}
     };
+
     use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
     use starknet::{get_block_timestamp};
-    use super::{IPriceFetcher, PriceResult, ContractAddress, CandlestickPoint};
+    use super::{IPriceFetcher, PriceResult, ContractAddress, CandlestickPoint, i129};
+
+
+    #[derive(Drop, Clone, Copy)]
+    struct CandlestickAggregate {
+        time: u64,
+        min_tick: i129,
+        max_tick: i129,
+        first_tick: i129,
+        last_tick: i129,
+    }
+
 
     #[storage]
     struct Storage {
@@ -212,7 +225,7 @@ mod PriceFetcher {
                             - (available_num_intervals * query_interval_seconds.into());
 
                         let mut points = oracle
-                            .get_average_price_x128_history(
+                            .get_average_tick_history(
                                 base_token,
                                 quote_token,
                                 end_time,
@@ -221,23 +234,77 @@ mod PriceFetcher {
                                     .expect('Too many intervals queried'),
                                 query_interval_seconds
                             );
+
                         let mut index: usize = 0;
+                        let mut last_point: Option<CandlestickAggregate> = Option::None;
+                        let mut aggs: Array<CandlestickAggregate> = array![];
 
                         while let Option::Some(next_point) = points.pop_front() {
-                            // todo: aggregate all the points in the same interval
-                            let price: u256 = *next_point;
+                            let tick = *next_point;
+
+                            let point_time = actual_start
+                                + query_interval_seconds.into() * index.into();
+
+                            let result_time = (point_time / interval_seconds.into())
+                                * interval_seconds.into();
+
+                            if let Option::Some(last) = last_point {
+                                if last.time == result_time {
+                                    last_point =
+                                        Option::Some(
+                                            CandlestickAggregate {
+                                                time: result_time,
+                                                min_tick: min(tick, last.min_tick),
+                                                max_tick: max(tick, last.min_tick),
+                                                first_tick: last.first_tick,
+                                                last_tick: tick
+                                            }
+                                        );
+                                } else {
+                                    aggs.append(last);
+                                    last_point =
+                                        Option::Some(
+                                            CandlestickAggregate {
+                                                time: result_time,
+                                                min_tick: tick,
+                                                max_tick: tick,
+                                                first_tick: tick,
+                                                last_tick: tick
+                                            }
+                                        );
+                                }
+                            } else {
+                                last_point =
+                                    Option::Some(
+                                        CandlestickAggregate {
+                                            time: result_time,
+                                            min_tick: tick,
+                                            max_tick: tick,
+                                            first_tick: tick,
+                                            last_tick: tick
+                                        }
+                                    );
+                            }
+
+                            index += 1;
+                        };
+
+                        if let Option::Some(last) = last_point {
+                            aggs.append(last);
+                        }
+
+                        // convert the aggregates to points
+                        while let Option::Some(p) = aggs.pop_front() {
                             result
                                 .append(
                                     CandlestickPoint {
-                                        time: actual_start
-                                            + query_interval_seconds.into() * index.into(),
-                                        min: price,
-                                        max: price,
-                                        open: price,
-                                        close: price
+                                        time: p.time,
+                                        min: tick_to_price_x128(p.min_tick),
+                                        max: tick_to_price_x128(p.max_tick),
+                                        open: tick_to_price_x128(p.first_tick),
+                                        close: tick_to_price_x128(p.last_tick)
                                     }
                                 );
-                            index += 1;
                         }
                     }
                 }
