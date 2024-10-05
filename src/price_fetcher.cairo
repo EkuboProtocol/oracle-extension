@@ -239,8 +239,6 @@ pub mod PriceFetcher {
                         let mut last_point: Option<CandlestickAggregate> = Option::None;
                         let mut aggs: Array<CandlestickAggregate> = array![];
 
-                        print!("actual_start: {}", actual_start);
-
                         while let Option::Some(next_point) = points.pop_front() {
                             let tick = *next_point;
 
