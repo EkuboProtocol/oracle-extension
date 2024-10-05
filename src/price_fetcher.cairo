@@ -11,11 +11,11 @@ pub enum PriceResult {
 
 #[derive(Copy, Drop, PartialEq, Serde, Debug)]
 pub struct CandlestickPoint {
-    time: u64,
-    min: u256,
-    max: u256,
-    open: u256,
-    close: u256,
+    pub time: u64,
+    pub min: u256,
+    pub max: u256,
+    pub open: u256,
+    pub close: u256,
 }
 
 #[starknet::interface]
