@@ -12,8 +12,8 @@ pub enum PriceResult {
 #[derive(Copy, Drop, PartialEq, Serde, Debug)]
 pub struct CandlestickPoint {
     pub time: u64,
-    pub min: u256,
-    pub max: u256,
+    pub low: u256,
+    pub high: u256,
     pub open: u256,
     pub close: u256,
 }
@@ -298,8 +298,8 @@ pub mod PriceFetcher {
                                 .append(
                                     CandlestickPoint {
                                         time: p.time,
-                                        min: tick_to_price_x128(p.min_tick),
-                                        max: tick_to_price_x128(p.max_tick),
+                                        low: tick_to_price_x128(p.min_tick),
+                                        high: tick_to_price_x128(p.max_tick),
                                         open: tick_to_price_x128(p.first_tick),
                                         close: tick_to_price_x128(p.last_tick)
                                     }
