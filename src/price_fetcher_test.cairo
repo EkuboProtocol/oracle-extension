@@ -67,6 +67,10 @@ fn test_get_usdc_prices_for_common_tokens() {
                 contract_address_const::<
                     0x0410466536b5ae074f7fea81e5533b8134a9fa08b3dd077dd9db08f64997d113
                 >(),
+                // USDC
+                contract_address_const::<
+                    0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8
+                >(),
             ]
                 .span(),
             period: 180,
@@ -84,7 +88,8 @@ fn test_get_usdc_prices_for_common_tokens() {
             PriceResult::Price(967957750124759482814198120731), // 2,844.5721677658
             PriceResult::InsufficientLiquidity(()),
             PriceResult::InsufficientLiquidity(()),
-            PriceResult::NotInitialized(())
+            PriceResult::NotInitialized(()),
+            PriceResult::Price(u256 { high: 1, low: 0 })
         ]
             .span()
     );
@@ -120,7 +125,8 @@ fn test_get_candlestick_chart_eth_usdc() {
     assert_eq!(
         data,
         (
-            1728138584, [
+            1728138584,
+            array![
                 CandlestickPoint {
                     time: 1728127784,
                     low: 823443156570528826146437523704,
@@ -139,10 +145,11 @@ fn test_get_candlestick_chart_eth_usdc() {
                     time: 1728134984,
                     low: 819919793565769978220410180411,
                     high: 820398766332160792957279644036,
-                    open: 823481035808007237524429035770,
+                    open: 824638014612858886488344812926,
                     close: 819919793565769978220410180411
                 }
-            ].span()
+            ]
+                .span()
         )
     );
 }

@@ -140,6 +140,10 @@ pub mod PriceFetcher {
                 } else {
                     (oracle_token, *next)
                 };
+                if token0 == token1 {
+                    result.append(PriceResult::Price(u256 { high: 1, low: 0 }));
+                    continue;
+                }
                 let pool_key = PoolKey {
                     token0,
                     token1,
@@ -265,7 +269,7 @@ pub mod PriceFetcher {
                                                 time: result_time,
                                                 min_tick: tick,
                                                 max_tick: tick,
-                                                first_tick: tick,
+                                                first_tick: last.last_tick,
                                                 last_tick: tick
                                             }
                                         );
