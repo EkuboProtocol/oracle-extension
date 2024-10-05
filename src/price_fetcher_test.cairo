@@ -1,5 +1,6 @@
 use ekubo_oracle_extension::price_fetcher::{
-    CandlestickPoint, IPriceFetcherDispatcher, IPriceFetcherDispatcherTrait, PriceResult
+    CandlestickPoint, IPriceFetcherDispatcher, IPriceFetcherDispatcherTrait, PriceResult,
+    PriceFetcher::{get_query_interval}
 };
 use snforge_std::{ContractClassTrait, DeclareResultTrait, declare};
 use starknet::{contract_address_const};
@@ -90,6 +91,13 @@ fn test_get_usdc_prices_for_common_tokens() {
 }
 
 #[test]
+fn test_get_query_interval() {
+    assert_eq!(get_query_interval(300, 8), (50, 6));
+    assert_eq!(get_query_interval(300, 10), (30, 10));
+    assert_eq!(get_query_interval(263, 30), (263, 1));
+}
+
+#[test]
 #[fork("mainnet_live_oracle")]
 fn test_get_candlestick_chart_eth_usdc() {
     let fetcher = deploy_price_fetcher();
@@ -104,46 +112,37 @@ fn test_get_candlestick_chart_eth_usdc() {
             quote_token: contract_address_const::<
                 0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8
             >(),
-            interval_seconds: 300,
+            interval_seconds: 3600,
             num_intervals: 3,
-            max_resolution: 8,
+            max_resolution: 10,
         );
 
     assert_eq!(
         data,
         (
-            1728138584,
-            array![
+            1728138584, [
                 CandlestickPoint {
-                    time: 1728137400,
-                    min: 820025569988684352501158936387,
-                    max: 820025569988684352501158936387,
-                    open: 820025569988684352501158936387,
-                    close: 820025569988684352501158936387
+                    time: 1728127784,
+                    min: 823443156570528826146437523704,
+                    max: 823949729613777479902644609622,
+                    open: 823443156570528826146437523704,
+                    close: 823949729613777479902644609622
                 },
                 CandlestickPoint {
-                    time: 1728137700,
-                    min: 819688608898146940505286773935,
-                    max: 820635075085537219190804730931,
-                    open: 819688608898146940505286773935,
-                    close: 820635075085537219190804730931
+                    time: 1728131384,
+                    min: 823602919959569493485072420146,
+                    max: 824638014612858886488344812926,
+                    open: 823949729613777479902644609622,
+                    close: 824638014612858886488344812926
                 },
                 CandlestickPoint {
-                    time: 1728138000,
-                    min: 819599267753628438695203216437,
-                    max: 819723036525481965055071105763,
-                    open: 820635075085537219190804730931,
-                    close: 819599267753628438695203216437
-                },
-                CandlestickPoint {
-                    time: 1728138300,
-                    min: 819599267753628438695203216437,
-                    max: 820215837896011624867022664333,
-                    open: 819599267753628438695203216437,
-                    close: 820215837896011624867022664333
+                    time: 1728134984,
+                    min: 819919793565769978220410180411,
+                    max: 820398766332160792957279644036,
+                    open: 823481035808007237524429035770,
+                    close: 819919793565769978220410180411
                 }
-            ]
-                .span()
+            ].span()
         )
     );
 }

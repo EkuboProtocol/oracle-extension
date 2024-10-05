@@ -59,7 +59,7 @@ pub trait IPriceFetcher<TContractState> {
 }
 
 #[starknet::contract]
-mod PriceFetcher {
+pub mod PriceFetcher {
     use core::cmp::{min, max};
     use core::num::traits::{Zero};
     use ekubo::interfaces::core::{ICoreDispatcher, ICoreDispatcherTrait};
@@ -99,7 +99,7 @@ mod PriceFetcher {
     const MIN_SQRT_RATIO: u256 = 18446748437148339061;
     const MAX_SQRT_RATIO: u256 = 6277100250585753475930931601400621808602321654880405518632;
 
-    fn get_query_interval(interval_seconds: u32, mut max_resolution: u8) -> (u32, u8) {
+    pub fn get_query_interval(interval_seconds: u32, mut max_resolution: u8) -> (u32, u8) {
         loop {
             let denominator: NonZero<u32> = Into::<u8, u32>::into(max_resolution)
                 .try_into()
@@ -235,18 +235,17 @@ mod PriceFetcher {
                                 query_interval_seconds
                             );
 
-                        let mut index: usize = 0;
+                        let mut index: u32 = 0;
                         let mut last_point: Option<CandlestickAggregate> = Option::None;
                         let mut aggs: Array<CandlestickAggregate> = array![];
+
+                        print!("actual_start: {}", actual_start);
 
                         while let Option::Some(next_point) = points.pop_front() {
                             let tick = *next_point;
 
-                            let point_time = actual_start
-                                + query_interval_seconds.into() * index.into();
-
-                            let result_time = (point_time / interval_seconds.into())
-                                * interval_seconds.into();
+                            let result_time = actual_start
+                                + (index / resolution.into()).into() * interval_seconds.into();
 
                             if let Option::Some(last) = last_point {
                                 if last.time == result_time {
