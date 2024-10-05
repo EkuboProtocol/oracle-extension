@@ -256,7 +256,7 @@ pub mod PriceFetcher {
                                             CandlestickAggregate {
                                                 time: result_time,
                                                 min_tick: min(tick, last.min_tick),
-                                                max_tick: max(tick, last.min_tick),
+                                                max_tick: max(tick, last.max_tick),
                                                 first_tick: last.first_tick,
                                                 last_tick: tick
                                             }
