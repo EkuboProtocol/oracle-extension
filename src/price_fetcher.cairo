@@ -134,16 +134,25 @@ pub mod PriceFetcher {
             let time = get_block_timestamp();
 
             while let Option::Some(next) = base_tokens.pop_front() {
-                let is_token0 = *next < oracle_token;
-                let (token0, token1) = if is_token0 {
-                    (*next, oracle_token)
-                } else {
-                    (oracle_token, *next)
-                };
-                if token0 == token1 {
+                if *next == quote_token {
                     result.append(PriceResult::Price(u256 { high: 1, low: 0 }));
                     continue;
                 }
+
+                let (is_token0, token0, token1) = if *next == oracle_token {
+                    if oracle_token < quote_token {
+                        (false, oracle_token, quote_token)
+                    } else {
+                        (true, quote_token, oracle_token)
+                    }
+                } else {
+                    if *next < oracle_token {
+                        (true, *next, oracle_token)
+                    } else {
+                        (false, oracle_token, *next)
+                    }
+                };
+
                 let pool_key = PoolKey {
                     token0,
                     token1,
