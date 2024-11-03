@@ -24,7 +24,7 @@ fn deploy_price_fetcher() -> IPriceFetcherDispatcher {
 
 
 #[test]
-#[fork("mainnet_live_oracle")]
+#[fork("mainnet")]
 fn test_get_usdc_prices_for_common_tokens() {
     let fetcher = deploy_price_fetcher();
 
@@ -101,7 +101,7 @@ fn test_get_usdc_prices_for_common_tokens() {
 }
 
 #[test]
-#[fork("mainnet_live_oracle")]
+#[fork("mainnet")]
 fn test_get_prices_in_oracle_tokens() {
     let fetcher = deploy_price_fetcher();
 
@@ -196,7 +196,7 @@ fn test_get_query_interval() {
 }
 
 #[test]
-#[fork("mainnet_live_oracle")]
+#[fork("mainnet")]
 fn test_get_candlestick_chart_eth_usdc() {
     let fetcher = deploy_price_fetcher();
 

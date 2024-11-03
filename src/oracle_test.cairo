@@ -160,6 +160,28 @@ fn test_position_must_be_full_range() {
 
 #[test]
 #[fork("mainnet")]
+fn test_full_range_position_mint_works() {
+    let (pool_key, _) = setup();
+    ekubo_core().initialize_pool(pool_key, i129 { mag: 0, sign: false });
+    IERC20Dispatcher { contract_address: pool_key.token0 }
+        .transfer(positions().contract_address, 1_000_000);
+    IERC20Dispatcher { contract_address: pool_key.token1 }
+        .transfer(positions().contract_address, 1_000_000);
+    let (_, liquidity) = positions()
+        .mint_and_deposit(
+            pool_key,
+            // full range bounds
+            Bounds {
+                lower: i129 { mag: 88368108, sign: true },
+                upper: i129 { mag: 88368108, sign: false },
+            },
+            0
+        );
+    assert_eq!(liquidity, 1000000);
+}
+
+#[test]
+#[fork("mainnet")]
 fn test_get_average_tick() {
     let (pool_key, _) = setup();
     let oracle = IOracleDispatcher { contract_address: pool_key.extension };
